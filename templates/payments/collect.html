@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% block title %}Collect EMI{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-title">EMI Collection</h1><p class="page-subtitle">Record a payment from a borrower</p></div>
+  <a href="{{ url_for('payments.index') }}" class="btn btn-outline-secondary"><i class="bi bi-clock-history me-1"></i>History</a>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-7">
+    <div class="card">
+      <div class="card-header-custom"><h5><i class="bi bi-receipt-cutoff me-2 text-primary-brand"></i>Payment Details</h5></div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('payments.collect') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Loan No *</label>
+              <div class="input-group">
+                <input type="text" name="loan_id" id="loanIdInput" class="form-control" value="{{ loan_id }}" required placeholder="e.g. AGM0001" oninput="onLoanIdChange()">
+                <button type="button" class="btn btn-outline-secondary" onclick="fetchLoanInfo()"><i class="bi bi-search"></i></button>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Collection Date *</label>
+              <input type="date" name="collection_date" id="collectionDate" class="form-control" required>
+            </div>
+          </div>
+
+          <!-- Loan info box -->
+          <div id="loanInfoBox" class="mt-3" {% if not loan %}style="display:none"{% endif %}>
+            <div class="p-3 rounded-3" style="background:var(--bg);border:1px solid var(--border)">
+              <div class="row g-2" id="loanInfoContent">
+                {% if loan %}
+                <div class="col-sm-6"><span class="text-muted" style="font-size:12px">Customer</span><div class="fw-600">{{ loan.customer_name }}</div></div>
+                <div class="col-sm-6"><span class="text-muted" style="font-size:12px">Monthly Due</span><div class="fw-700 text-primary-brand">₹{{ "{:,.2f}".format(loan.due_amount) }}</div></div>
+                <div class="col-sm-6"><span class="text-muted" style="font-size:12px">Carry Forward</span><div class="fw-700 text-warning">₹{{ "{:,.2f}".format(carry_forward) }}</div></div>
+                <div class="col-sm-6"><span class="text-muted" style="font-size:12px">Total Due This Month</span><div class="fw-700 text-danger" style="font-size:18px">₹{{ "{:,.2f}".format(total_due) }}</div></div>
+                <div class="col-sm-6"><span class="text-muted" style="font-size:12px">Balance</span><div class="fw-700">₹{{ "{:,.2f}".format(loan.balance_agreement) }}</div></div>
+                <div class="col-sm-6"><span class="text-muted" style="font-size:12px">Paid: {{ loan.paid_due }}/{{ loan.tenure }} months</span></div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          {% if overdue %}
+          <div class="alert alert-danger mt-3 py-2" style="font-size:13px">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            This loan is <strong>overdue</strong>. A penalty may apply.
+          </div>
+          {% endif %}
+
+          <div class="row g-3 mt-1">
+            <div class="col-md-6">
+              <label class="form-label">Payment Type *</label>
+              <select name="payment_type" id="paymentType" class="form-select" required onchange="onPaymentTypeChange()">
+                <option value="EMI">EMI (Regular Installment)</option>
+                <option value="Advance">Advance (Pre-payment)</option>
+                <option value="Penalty">Penalty Only</option>
+              </select>
+              <div class="mt-1" style="font-size:11px;color:var(--text-secondary)" id="paymentTypeHint">
+                Splits into principal + interest automatically
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Amount Paid (₹) *</label>
+              <div class="input-group">
+                <span class="input-group-text">₹</span>
+                <input type="number" name="paid_amount" id="paidAmount" class="form-control" min="0" step="0.01" required oninput="updatePending()">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Pending (auto-calculated)</label>
+              <div class="input-group">
+                <span class="input-group-text">₹</span>
+                <input type="text" id="pendingDisplay" class="form-control bg-light" readonly value="0.00" style="color:var(--danger);font-weight:700">
+              </div>
+            </div>
+            <div class="col-md-6" id="penaltyFieldWrap">
+              <label class="form-label">Penalty Amount (₹)</label>
+              <div class="input-group">
+                <span class="input-group-text">₹</span>
+                <input type="number" name="penalty_amount" id="penaltyAmount" class="form-control" min="0" step="0.01" value="{{ loan.penalty_amount if loan else 0 }}" oninput="updatePending()">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Payment Mode *</label>
+              <select name="payment_mode" class="form-select" required>
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Collection Remarks</label>
+              <textarea name="collection_remarks" class="form-control" rows="2" placeholder="Any notes..."></textarea>
+            </div>
+          </div>
+
+          <!-- Principal / Interest split preview -->
+          <div id="splitPreview" class="mt-3 p-3 rounded" style="background:rgba(15,76,129,.05);border:1px solid rgba(15,76,129,.15);display:none">
+            <div class="d-flex justify-content-between" style="font-size:13px">
+              <span class="text-muted">This payment splits into:</span>
+            </div>
+            <div class="row g-2 mt-1 text-center">
+              <div class="col-6">
+                <div class="text-muted" style="font-size:11px">Principal</div>
+                <div class="fw-700 text-primary-brand" id="splitPrincipal">₹0.00</div>
+              </div>
+              <div class="col-6">
+                <div class="text-muted" style="font-size:11px">Interest</div>
+                <div class="fw-700 text-secondary-brand" id="splitInterest">₹0.00</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="quickAmountBtns" class="mt-3" style="display:none">
+            <div class="text-muted mb-2" style="font-size:12px;font-weight:600">QUICK FILL:</div>
+            <div class="d-flex gap-2 flex-wrap" id="quickBtnContainer"></div>
+          </div>
+
+          <div class="d-flex gap-2 justify-content-end mt-4 pt-3 border-top">
+            <a href="{{ url_for('payments.index') }}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-success px-4"><i class="bi bi-check-lg me-2"></i>Record Payment</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card mb-3" style="border-left:4px solid var(--secondary)">
+      <div class="card-body">
+        <h6 class="fw-700 mb-3"><i class="bi bi-info-circle me-2 text-secondary-brand"></i>Carry Forward Logic</h6>
+        <div class="d-flex flex-column gap-2" style="font-size:13px">
+          <div class="p-2 rounded" style="background:rgba(27,156,133,.06)"><strong>Month 1:</strong> Due=₹5,000 | Paid=₹3,000<br><span class="text-danger">Pending ₹2,000 → carries forward</span></div>
+          <div class="p-2 rounded" style="background:rgba(15,76,129,.06)"><strong>Month 2:</strong> Due ₹5,000 + CF ₹2,000<br><span class="text-primary fw-600">Total Due = ₹7,000</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header-custom"><h5>Active Loans</h5></div>
+      <div style="max-height:340px;overflow-y:auto">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Loan No</th><th>Customer</th><th>Due</th><th></th></tr></thead>
+          <tbody>
+            {% for al in active_loans %}
+            <tr>
+              <td class="font-mono" style="font-size:12px">{{ al.loan_id }}</td>
+              <td style="font-size:12px">{{ al.customer_name }}</td>
+              <td style="font-size:12px">₹{{ "{:,.0f}".format(al.due_amount) }}</td>
+              <td><button type="button" class="btn btn-outline-primary" style="padding:2px 8px;font-size:11px" onclick="selectLoan('{{ al.loan_id }}')">Select</button></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentTotalDue = {{ total_due or 0 }};
+let currentRatio = {{ ((loan.principle_amount / loan.agreement_value) if loan and loan.agreement_value else 0) }};
+// Fix timezone-sensitive date initialization
+const now = new Date();
+const offset = now.getTimezoneOffset() * 60000;
+const localISOTime = (new Date(now - offset)).toISOString().slice(0, 10);
+document.getElementById('collectionDate').value = localISOTime;
+
+function selectLoan(id){ document.getElementById('loanIdInput').value=id; fetchLoanInfo(); }
+function onLoanIdChange(){ clearTimeout(window._t); window._t=setTimeout(fetchLoanInfo,600); }
+
+function onPaymentTypeChange(){
+  const type = document.getElementById('paymentType').value;
+  const hint = document.getElementById('paymentTypeHint');
+  const penaltyWrap = document.getElementById('penaltyFieldWrap');
+  if (type === 'Penalty') {
+    hint.textContent = 'Entire amount recorded as penalty — clears assessed penalty on this loan';
+    penaltyWrap.style.display = 'none';
+  } else if (type === 'Advance') {
+    hint.textContent = 'Pre-payment ahead of schedule — still splits into principal + interest';
+    penaltyWrap.style.display = '';
+  } else {
+    hint.textContent = 'Splits into principal + interest automatically';
+    penaltyWrap.style.display = '';
+  }
+  updatePending();
+}
+
+async function fetchLoanInfo(){
+  const id=document.getElementById('loanIdInput').value.trim();
+  if(!id) {
+    document.getElementById('loanInfoBox').style.display='none';
+    return;
+  }
+  const box=document.getElementById('loanInfoBox'), cont=document.getElementById('loanInfoContent');
+  try{
+    const r=await fetch('/payments/api/loan-info/'+id);
+    if(r.ok){
+      const d=await r.json();
+      currentTotalDue=d.total_due;
+      currentRatio=d.principal_ratio || 0;
+      cont.innerHTML=`
+        <div class="col-sm-6"><span class="text-muted" style="font-size:12px">Customer</span><div class="fw-600">${escapeHtml(d.customer_name)}</div></div>
+        <div class="col-sm-6"><span class="text-muted" style="font-size:12px">Monthly Due</span><div class="fw-700 text-primary-brand">₹${d.due_amount.toLocaleString('en-IN',{minimumFractionDigits:2})}</div></div>
+        <div class="col-sm-6"><span class="text-muted" style="font-size:12px">Carry Forward</span><div class="fw-700 text-warning">₹${d.carry_forward.toLocaleString('en-IN',{minimumFractionDigits:2})}</div></div>
+        <div class="col-sm-6"><span class="text-muted" style="font-size:12px">Total Due</span><div class="fw-700 text-danger" style="font-size:18px">₹${d.total_due.toLocaleString('en-IN',{minimumFractionDigits:2})}</div></div>
+        <div class="col-sm-6"><span class="text-muted" style="font-size:12px">Balance</span><div class="fw-700">₹${d.balance.toLocaleString('en-IN',{minimumFractionDigits:2})}</div></div>
+        ${d.overdue?'<div class="col-12"><span class="badge bg-danger">OVERDUE</span></div>':''}`;
+      box.style.display='block';
+      document.getElementById('penaltyAmount').value=d.penalty_amount||0;
+      setupQuick(d.total_due, d.due_amount);
+      updatePending();
+    } else {
+      currentTotalDue = 0;
+      cont.innerHTML='<div class="col-12 text-danger"><i class="bi bi-x-circle me-1"></i>Loan not found or inactive.</div>';
+      box.style.display='block';
+      document.getElementById('quickAmountBtns').style.display='none';
+      updatePending();
+    }
+  } catch(e){ console.error(e); }
+}
+
+function setupQuick(totalDue, due){
+  const btns=document.getElementById('quickBtnContainer');
+  const amounts=[...new Set([due,totalDue].filter(v=>v>0))];
+  btns.innerHTML=amounts.map(a=>`<button type="button" class="btn btn-sm btn-outline-secondary" onclick="setAmt(${a})">₹${a.toLocaleString('en-IN',{minimumFractionDigits:2})}</button>`).join('');
+  document.getElementById('quickAmountBtns').style.display=amounts.length?'block':'none';
+}
+function setAmt(v){ document.getElementById('paidAmount').value=v.toFixed(2); updatePending(); }
+function updatePending(){
+  const type=document.getElementById('paymentType').value;
+  const paid=parseFloat(document.getElementById('paidAmount').value)||0;
+  const pen=parseFloat(document.getElementById('penaltyAmount').value)||0;
+  const d=document.getElementById('pendingDisplay');
+  const splitBox=document.getElementById('splitPreview');
+
+  if (type === 'Penalty') {
+    d.value = '0.00';
+    d.style.color = 'var(--success)';
+    splitBox.style.display = 'none';
+    return;
+  }
+
+  const pending=Math.max(currentTotalDue+pen-paid,0);
+  d.value=pending.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+  d.style.color=pending>0?'var(--danger)':'var(--success)';
+
+  if (paid > 0 && currentRatio > 0) {
+    const principal = Math.round(paid * currentRatio * 100) / 100;
+    const interest   = Math.round((paid - principal) * 100) / 100;
+    document.getElementById('splitPrincipal').textContent = '₹' + principal.toLocaleString('en-IN',{minimumFractionDigits:2});
+    document.getElementById('splitInterest').textContent  = '₹' + interest.toLocaleString('en-IN',{minimumFractionDigits:2});
+    splitBox.style.display = 'block';
+  } else {
+    splitBox.style.display = 'none';
+  }
+}
+
+{% if loan_id %}fetchLoanInfo();{% endif %}
+{% if loan %}setupQuick({{ total_due }}, {{ loan.due_amount }});{% endif %}
+
+// ── Loan ID autocomplete ────────────────────────────────────────────────────
+attachAutocomplete(document.getElementById('loanIdInput'), 'loans', (item) => {
+  fetchLoanInfo();
+});
+</script>
+{% endblock %}

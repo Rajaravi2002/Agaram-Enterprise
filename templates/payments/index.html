@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Payment History{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Payment History</h1>
+    <p class="page-subtitle">All EMI collections recorded</p>
+  </div>
+  <a href="{{ url_for('payments.collect') }}" class="btn btn-success">
+    <i class="bi bi-plus me-1"></i>Collect EMI
+  </a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <form method="GET" class="d-flex gap-2">
+      <div class="input-group" style="max-width:360px">
+        <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+        <input type="text" name="search" class="form-control" value="{{ search }}"
+               placeholder="Search by customer, loan ID, payment ID...">
+      </div>
+      <button type="submit" class="btn btn-primary">Search</button>
+      {% if search %}<a href="{{ url_for('payments.index') }}" class="btn btn-outline-secondary">Clear</a>{% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Payment ID</th>
+          <th>Loan ID</th>
+          <th>Customer</th>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Mode</th>
+          <th>Paid</th>
+          <th>Principal</th>
+          <th>Interest</th>
+          <th>Penalty</th>
+          <th>Pending</th>
+          <th>Balance</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in payments %}
+        <tr>
+          <td><a href="{{ url_for('payments.receipt', payment_id=p.payment_id) }}"
+                 class="font-mono text-primary fw-600" style="font-size:12px">{{ p.payment_id }}</a></td>
+          <td><a href="{{ url_for('loans.view', loan_id=p.loan_id) }}"
+                 class="font-mono text-secondary-brand" style="font-size:12px">{{ p.loan_id }}</a></td>
+          <td class="fw-600">{{ p.customer_name }}</td>
+          <td>{{ p.collection_date }}</td>
+          <td><span class="badge-status {{ (p.payment_type or 'EMI')|lower }}">{{ (p.payment_type or 'EMI')|title }}</span></td>
+          <td>{{ p.payment_mode or 'Cash' }}</td>
+          <td class="text-success fw-700">₹{{ "{:,.0f}".format(p.paid_amount) }}</td>
+          <td class="text-primary-brand">₹{{ "{:,.0f}".format(p.principal_component or 0) }}</td>
+          <td class="text-secondary-brand">₹{{ "{:,.0f}".format(p.interest_component or 0) }}</td>
+          <td class="{% if p.penalty_amount %}text-warning fw-600{% else %}text-muted{% endif %}">₹{{ "{:,.0f}".format(p.penalty_amount or 0) }}</td>
+          <td class="{% if p.pending_amount > 0 %}text-danger fw-700{% else %}text-success{% endif %}">
+            ₹{{ "{:,.0f}".format(p.pending_amount) }}
+          </td>
+          <td class="fw-600">₹{{ "{:,.0f}".format(p.outstanding_balance or 0) }}</td>
+          <td>
+            <a href="{{ url_for('payments.receipt', payment_id=p.payment_id) }}"
+               class="btn btn-sm btn-outline-primary btn-icon" title="View Receipt">
+              <i class="bi bi-receipt"></i>
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="13">
+            <div class="empty-state">
+              <i class="bi bi-receipt-cutoff"></i>
+              <h6>No payments recorded</h6>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Receipt {{ payment.payment_id }}{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+  <div><h1 class="page-title">Payment Receipt</h1><p class="page-subtitle">{{ payment.payment_id }}</p></div>
+  <div class="d-flex gap-2">
+    <button onclick="window.print()" class="btn btn-outline-primary"><i class="bi bi-printer me-2"></i>Print</button>
+    <a href="{{ url_for('payments.collect') }}" class="btn btn-success"><i class="bi bi-plus me-1"></i>New Collection</a>
+    <a href="{{ url_for('payments.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-md-7 col-lg-6">
+    <div class="receipt-card">
+      <div class="receipt-header">
+        <div style="font-size:28px;margin-bottom:8px"><i class="bi bi-bank2"></i></div>
+        <h4>Agaram Finance</h4>
+        <div style="font-size:13px;opacity:.8;margin-top:4px">Payment Receipt</div>
+      </div>
+      <div class="receipt-body">
+        <div class="receipt-amount">
+          <div class="text-muted" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Amount Paid</div>
+          <div class="amount">₹{{ "{:,.2f}".format(payment.paid_amount) }}</div>
+        </div>
+        <div class="receipt-row"><span class="label">Receipt No.</span><span class="value font-mono">{{ payment.payment_id }}</span></div>
+        <div class="receipt-row"><span class="label">Payment Type</span><span class="value"><span class="badge-status {{ (payment.payment_type or 'EMI')|lower }}">{{ (payment.payment_type or 'EMI')|title }}</span></span></div>
+        <div class="receipt-row"><span class="label">Loan No.</span><span class="value font-mono">{{ payment.loan_id }}</span></div>
+        <div class="receipt-row"><span class="label">Customer</span><span class="value">{{ payment.customer_name }}</span></div>
+        {% if loan %}<div class="receipt-row"><span class="label">Vehicle</span><span class="value">{{ loan.vehicle_number or '—' }}</span></div>{% endif %}
+        <div class="receipt-row"><span class="label">Payment Date</span><span class="value">{{ payment.collection_date }}</span></div>
+        <div class="receipt-row"><span class="label">Payment Mode</span><span class="value">{{ payment.payment_mode or 'Cash' }}</span></div>
+        <div class="receipt-row"><span class="label">Month No.</span><span class="value">{{ payment.month_number }}</span></div>
+        <div style="border-top:2px dashed var(--border);margin:12px 0"></div>
+        <div class="receipt-row"><span class="label">Monthly Due</span><span class="value">₹{{ "{:,.2f}".format(payment.emi_amount) }}</span></div>
+        {% if payment.carry_forward > 0 %}
+        <div class="receipt-row"><span class="label">Carry Forward</span><span class="value text-warning">₹{{ "{:,.2f}".format(payment.carry_forward) }}</span></div>
+        {% endif %}
+        {% if payment.penalty_amount > 0 %}
+        <div class="receipt-row"><span class="label">Penalty</span><span class="value text-danger">₹{{ "{:,.2f}".format(payment.penalty_amount) }}</span></div>
+        {% endif %}
+        <div class="receipt-row"><span class="label">Total Due</span><span class="value fw-700">₹{{ "{:,.2f}".format(payment.total_due) }}</span></div>
+        <div class="receipt-row"><span class="label">Amount Paid</span><span class="value text-success fw-700">₹{{ "{:,.2f}".format(payment.paid_amount) }}</span></div>
+        {% if payment.payment_type != 'Penalty' and (payment.principal_component or payment.interest_component) %}
+        <div style="border-top:1px dashed var(--border);margin:8px 0"></div>
+        <div class="receipt-row"><span class="label">↳ Principal Component</span><span class="value text-primary-brand">₹{{ "{:,.2f}".format(payment.principal_component or 0) }}</span></div>
+        <div class="receipt-row"><span class="label">↳ Interest Component</span><span class="value text-secondary-brand">₹{{ "{:,.2f}".format(payment.interest_component or 0) }}</span></div>
+        <div style="border-top:1px dashed var(--border);margin:8px 0"></div>
+        {% endif %}
+        <div class="receipt-row">
+          <span class="label">Pending</span>
+          <span class="value {% if payment.pending_amount > 0 %}text-danger{% else %}text-success{% endif %} fw-700">₹{{ "{:,.2f}".format(payment.pending_amount) }}</span>
+        </div>
+        <div class="receipt-row">
+          <span class="label">Outstanding Balance</span>
+          <span class="value fw-700">₹{{ "{:,.2f}".format(payment.outstanding_balance or (loan.balance_agreement if loan else 0)) }}</span>
+        </div>
+        {% if payment.pending_amount > 0 %}
+        <div style="background:rgba(255,193,7,.1);border-radius:8px;padding:8px 12px;margin:8px 0;font-size:12px;color:#856404">
+          <i class="bi bi-exclamation-triangle me-1"></i>₹{{ "{:,.2f}".format(payment.pending_amount) }} carries forward to next month.
+        </div>
+        {% endif %}
+        {% if payment.collection_remarks %}
+        <div class="receipt-row"><span class="label">Remarks</span><span class="value">{{ payment.collection_remarks }}</span></div>
+        {% endif %}
+        <div style="border-top:2px dashed var(--border);margin:12px 0"></div>
+        <div class="receipt-row"><span class="label">Collected By</span><span class="value">{{ payment.collected_by }}</span></div>
+        <div class="receipt-row"><span class="label">Generated On</span><span class="value">{{ payment.created_at }}</span></div>
+        {% if loan %}
+        <div style="background:rgba(15,76,129,.06);border-radius:8px;padding:10px;margin-top:12px;font-size:12px;text-align:center">
+          Balance: <strong>₹{{ "{:,.2f}".format(loan.balance_agreement) }}</strong> &nbsp;|&nbsp;
+          Status: <strong class="text-primary-brand">{{ loan.loan_status|title }}</strong>
+        </div>
+        {% endif %}
+        <div class="text-center mt-4" style="font-size:11px;color:var(--text-secondary)">
+          <i class="bi bi-shield-check me-1"></i>Computer-generated receipt – Agaram Finance
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

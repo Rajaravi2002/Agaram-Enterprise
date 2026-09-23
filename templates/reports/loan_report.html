@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Loan Report{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title"><i class="bi bi-file-earmark-text me-2 text-primary-brand"></i>Loan Report</h1>
+    <p class="page-subtitle">
+      {% if status %}Filter: <span class="badge badge-status {{ status }}">{{ status|title }}</span>{% else %}All Loans{% endif %}
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-success" href="{{ url_for('reports.export_excel_loans') }}"><i class="bi bi-file-earmark-excel me-1"></i>Excel</a>
+    <a class="btn btn-outline-danger" href="{{ url_for('reports.export_pdf', report_type='loans') }}"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('reports.index') }}"><i class="bi bi-arrow-left me-1"></i>Back</a>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <div class="btn-group" role="group">
+      <a class="btn btn-sm {% if not status %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('reports.loan_report') }}">All</a>
+      <a class="btn btn-sm {% if status == 'active' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status=active">Active</a>
+      <a class="btn btn-sm {% if status == 'overdue' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status=overdue">Overdue</a>
+      <a class="btn btn-sm {% if status == 'closed' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status=closed">Closed</a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="stat-card primary">
+      <div class="stat-icon primary"><i class="bi bi-bank"></i></div>
+      <div class="stat-value" style="font-size:22px">₹{{ "{:,.2f}".format(total_issued) }}</div>
+      <div class="stat-label">Total Loan Amount Issued</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card success">
+      <div class="stat-icon success"><i class="bi bi-check-circle-fill"></i></div>
+      <div class="stat-value" style="font-size:22px">₹{{ "{:,.2f}".format(total_collected) }}</div>
+      <div class="stat-label">Total Collected</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card accent">
+      <div class="stat-icon accent"><i class="bi bi-list-ol"></i></div>
+      <div class="stat-value" style="font-size:22px">{{ loans|length }}</div>
+      <div class="stat-label">Loans in Report</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Loan ID</th>
+          <th>Customer</th>
+          <th>Phone</th>
+          <th>Loan Date</th>
+          <th class="text-end">Amount</th>
+          <th class="text-end">Due/mo</th>
+          <th>Tenure</th>
+          <th>Paid</th>
+          <th class="text-end">Balance</th>
+          <th>Vehicle</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in loans %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td><a href="{{ url_for('loans.view', loan_id=l.loan_id) }}"
+                 class="font-mono text-primary fw-600" style="font-size:12px">{{ l.loan_id }}</a></td>
+          <td class="fw-600">{{ l.customer_name }}</td>
+          <td>{{ l.phone }}</td>
+          <td>{{ l.loan_date }}</td>
+          <td class="text-end">₹{{ "{:,.0f}".format(l.loan_amount) }}</td>
+          <td class="text-end">₹{{ "{:,.0f}".format(l.due_amount) }}</td>
+          <td>{{ l.tenure }} m</td>
+          <td>{{ l.paid_due }}/{{ l.tenure }}</td>
+          <td class="text-end {% if l.balance_agreement > 0 %}text-danger fw-700{% else %}text-success{% endif %}">
+            ₹{{ "{:,.0f}".format(l.balance_agreement or 0) }}
+          </td>
+          <td>{{ l.vehicle_number }}</td>
+          <td><span class="badge-status {{ l.loan_status }}">{{ l.loan_status|title }}</span></td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="12">
+            <div class="empty-state">
+              <i class="bi bi-file-earmark-x"></i>
+              <h6>No loans found</h6>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

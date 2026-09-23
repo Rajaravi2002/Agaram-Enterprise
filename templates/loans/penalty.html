@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Penalty – {{ loan.loan_id }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-title">Set Penalty</h1><p class="page-subtitle">{{ loan.loan_id }} – {{ loan.customer_name }}</p></div>
+  <a href="{{ url_for('loans.view', loan_id=loan.loan_id) }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card" style="border-left:4px solid var(--warning)">
+      <div class="card-header-custom">
+        <h5><i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>Penalty for Overdue Loan</h5>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-warning mb-4">
+          <strong>Loan {{ loan.loan_id }}</strong> has a balance of
+          <strong>₹{{ "{:,.2f}".format(loan.balance_agreement) }}</strong>.
+          The due date has passed. Please specify the penalty amount and reason.
+        </div>
+        <form method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-3">
+            <label class="form-label">Penalty Amount (₹) *</label>
+            <div class="input-group">
+              <span class="input-group-text">₹</span>
+              <input type="number" name="penalty_amount" class="form-control form-control-lg"
+                     value="{{ loan.penalty_amount or '' }}" min="0" step="0.01" required>
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Penalty Description *</label>
+            <textarea name="penalty_description" class="form-control" rows="3" required
+                      placeholder="Explain the reason for penalty (e.g. Late payment charge for 3 months delay)">{{ loan.penalty_description or '' }}</textarea>
+          </div>
+          <div class="d-flex gap-2 justify-content-end">
+            <a href="{{ url_for('loans.view', loan_id=loan.loan_id) }}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-warning px-4"><i class="bi bi-check-lg me-2"></i>Apply Penalty</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

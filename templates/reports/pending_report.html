@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Pending Dues Report{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title"><i class="bi bi-hourglass-split me-2 text-warning"></i>Pending Dues Report</h1>
+    <p class="page-subtitle">Latest pending balance per loan (carry-forward from most recent EMI)</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-success" href="{{ url_for('reports.export_excel_pending') }}"><i class="bi bi-file-earmark-excel me-1"></i>Excel</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('reports.index') }}"><i class="bi bi-arrow-left me-1"></i>Back</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="stat-card danger">
+      <div class="stat-icon danger"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <div class="stat-value" style="font-size:22px">₹{{ "{:,.2f}".format(total_pending) }}</div>
+      <div class="stat-label">Total Pending Amount</div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="stat-card warning">
+      <div class="stat-icon warning"><i class="bi bi-people"></i></div>
+      <div class="stat-value" style="font-size:22px">{{ rows|length }}</div>
+      <div class="stat-label">Loans with Pending Dues</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Loan ID</th>
+          <th>Customer</th>
+          <th>Phone</th>
+          <th>Last Payment Date</th>
+          <th class="text-end">Pending Amount</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td><a href="{{ url_for('loans.view', loan_id=r.loan_id) }}"
+                 class="font-mono text-primary fw-600" style="font-size:12px">{{ r.loan_id }}</a></td>
+          <td class="fw-600">{{ r.customer_name }}</td>
+          <td>{{ r.phone }}</td>
+          <td>{{ r.last_date_str }}</td>
+          <td class="text-end text-danger fw-700">₹{{ "{:,.2f}".format(r.pending) }}</td>
+          <td>
+            <a class="btn btn-sm btn-primary" href="{{ url_for('payments.collect', loan_id=r.loan_id) }}">
+              <i class="bi bi-cash me-1"></i>Collect
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7">
+            <div class="empty-state">
+              <i class="bi bi-check-circle-fill" style="color:var(--success)"></i>
+              <h6>No pending dues!</h6>
+              <p class="text-muted small">All customers are up to date.</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

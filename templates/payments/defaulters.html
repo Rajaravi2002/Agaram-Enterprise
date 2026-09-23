@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Defaulters{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-title">Defaulters</h1><p class="page-subtitle">Loans marked as overdue</p></div>
+</div>
+
+{% if defaulters_list %}
+<div class="row g-3 mb-4">
+  <div class="col-md-4"><div class="stat-card danger"><div class="stat-icon danger"><i class="bi bi-person-x-fill"></i></div>
+    <div class="stat-value">{{ defaulters_list|length }}</div><div class="stat-label">Total Defaulters</div></div></div>
+  <div class="col-md-4"><div class="stat-card warning"><div class="stat-icon warning"><i class="bi bi-currency-rupee"></i></div>
+    <div class="stat-value" style="font-size:20px">₹{{ "{:,.0f}".format(defaulters_list|sum(attribute='pending')) }}</div>
+    <div class="stat-label">Total Pending</div></div></div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>Loan No</th><th>Customer</th><th>Phone</th><th>Loan Amount</th><th>Pending</th><th>Last Payment</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for item in defaulters_list %}
+        <tr>
+          <td><a href="{{ url_for('loans.view', loan_id=item.loan.loan_id) }}" class="font-mono text-danger fw-600">{{ item.loan.loan_id }}</a></td>
+          <td class="fw-600">{{ item.loan.customer_name }}</td>
+          <td>{{ item.loan.phone or '—' }}</td>
+          <td>₹{{ "{:,.2f}".format(item.loan.loan_amount) }}</td>
+          <td class="text-danger fw-700 fs-6">₹{{ "{:,.2f}".format(item.pending) }}</td>
+          <td class="text-muted">{{ item.last_date }}</td>
+          <td>
+            <a href="{{ url_for('payments.collect') }}?loan_id={{ item.loan.loan_id }}" class="btn btn-sm btn-danger"><i class="bi bi-receipt-cutoff me-1"></i>Collect</a>
+            <a href="{{ url_for('loans.penalty', loan_id=item.loan.loan_id) }}" class="btn btn-sm btn-outline-warning ms-1"><i class="bi bi-exclamation-triangle"></i></a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7"><div class="empty-state"><i class="bi bi-shield-check-fill text-success"></i><h6 class="text-success">No defaulters!</h6></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

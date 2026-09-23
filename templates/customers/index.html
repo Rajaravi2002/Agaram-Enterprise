@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Customers{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-title">Customers</h1><p class="page-subtitle">{{ customers|length }} customer(s)</p></div>
+  <a href="{{ url_for('customers.add') }}" class="btn btn-primary"><i class="bi bi-person-plus-fill me-2"></i>Add Customer</a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <form method="GET" class="d-flex gap-2">
+      <div class="input-group" style="max-width:380px">
+        <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+        <input type="text" name="search" class="form-control" value="{{ search }}" placeholder="Search by name or phone...">
+      </div>
+      <button type="submit" class="btn btn-primary">Search</button>
+      {% if search %}<a href="{{ url_for('customers.index') }}" class="btn btn-outline-secondary">Clear</a>{% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr><th>Name</th><th>Phone</th><th>Occupation</th><th>Loans</th><th>Date Added</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for c in customers %}
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="user-avatar" style="width:32px;height:32px;font-size:13px;background:var(--primary)">{{ c.name[0]|upper }}</div>
+              <div>
+                <div class="fw-600">{{ c.name }}</div>
+                <div class="text-muted" style="font-size:11px">{{ c.alt_phone or '' }}</div>
+              </div>
+            </div>
+          </td>
+          <td>{{ c.phone }}</td>
+          <td>{{ c.occupation or '—' }}</td>
+          <td><span class="badge {% if c.loan_count > 0 %}bg-primary{% else %}bg-secondary{% endif %}">{{ c.loan_count }} loan{{ 's' if c.loan_count != 1 }}</span></td>
+          <td class="text-muted">{{ c.date_added }}</td>
+          <td>
+            <div class="d-flex gap-1">
+              <a href="{{ url_for('customers.view', cid=c.id) }}" class="btn btn-sm btn-outline-primary btn-icon" title="View"><i class="bi bi-eye"></i></a>
+              <a href="{{ url_for('customers.edit', cid=c.id) }}" class="btn btn-sm btn-outline-secondary btn-icon" title="Edit"><i class="bi bi-pencil"></i></a>
+              <a href="{{ url_for('loans.create') }}?customer_name={{ c.name|urlencode }}" class="btn btn-sm btn-outline-success btn-icon" title="New Loan"><i class="bi bi-cash-coin"></i></a>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6">
+          <div class="empty-state"><i class="bi bi-people"></i><h6>No customers found</h6>
+          <a href="{{ url_for('customers.add') }}" class="btn btn-primary mt-3">Add First Customer</a></div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

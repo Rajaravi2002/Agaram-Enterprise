@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header dashboard-header">
+  <div>
+    <h1 class="page-title"><i class="bi bi-speedometer2 me-2 text-primary-brand"></i>Dashboard</h1>
+    <p class="page-subtitle">Welcome back, <span class="fw-600 text-primary-brand">{{ current_user.full_name }}</span> — here's your financial overview</p>
+  </div>
+  <div class="dashboard-datetime" id="current-datetime"></div>
+</div>
+
+<!-- Stat Cards Row 1 -->
+<div class="row g-3 mb-3">
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card primary">
+      <div class="stat-icon primary"><i class="bi bi-people-fill"></i></div>
+      <div class="stat-value">{{ stats.total_customers }}</div>
+      <div class="stat-label">Total Customers</div>
+      <div class="stat-sub"><i class="bi bi-person-plus me-1"></i>Registered borrowers</div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card secondary">
+      <div class="stat-icon secondary"><i class="bi bi-cash-coin"></i></div>
+      <div class="stat-value">{{ stats.active_loans }}</div>
+      <div class="stat-label">Active Loans</div>
+      <div class="stat-sub"><span class="badge-status closed me-1">{{ stats.closed_loans }} closed</span>{{ stats.total_loans }} total</div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card warning">
+      <div class="stat-icon warning"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <div class="stat-value">{{ stats.overdue_loans }}</div>
+      <div class="stat-label">Overdue Loans</div>
+      <div class="stat-sub"><a href="{{ url_for('payments.defaulters') }}" class="text-decoration-none">View defaulters <i class="bi bi-arrow-right"></i></a></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card success">
+      <div class="stat-icon success"><i class="bi bi-currency-rupee"></i></div>
+      <div class="stat-value">₹{{ "{:,.0f}".format(stats.today_collection) }}</div>
+      <div class="stat-label">Today's Collection</div>
+      <div class="stat-sub">
+        {% if stats.today_delta_pct >= 0 %}
+        <span class="delta-up"><i class="bi bi-arrow-up-short"></i>{{ stats.today_delta_pct }}%</span>
+        {% else %}
+        <span class="delta-down"><i class="bi bi-arrow-down-short"></i>{{ stats.today_delta_pct|abs }}%</span>
+        {% endif %}
+        vs yesterday
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stat Cards Row 2 -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card primary">
+      <div class="stat-icon primary"><i class="bi bi-bank"></i></div>
+      <div class="stat-value" style="font-size:20px">₹{{ "{:,.0f}".format(stats.total_loan_issued) }}</div>
+      <div class="stat-label">Total Loans Issued</div>
+      <div class="stat-sub">Portfolio principal outstanding capacity</div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card success">
+      <div class="stat-icon success"><i class="bi bi-check-circle-fill"></i></div>
+      <div class="stat-value" style="font-size:20px">₹{{ "{:,.0f}".format(stats.total_collected) }}</div>
+      <div class="stat-label">Total Collected</div>
+      <div class="progress mt-2" style="height:6px;">
+        <div class="progress-bar bg-success" style="width: {{ stats.collection_rate }}%;"></div>
+      </div>
+      <div class="stat-sub mt-1">{{ stats.collection_rate }}% of loans recovered</div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card danger">
+      <div class="stat-icon danger"><i class="bi bi-hourglass-split"></i></div>
+      <div class="stat-value" style="font-size:20px">₹{{ "{:,.0f}".format(stats.outstanding) }}</div>
+      <div class="stat-label">Outstanding Amount</div>
+      <div class="stat-sub"><a href="{{ url_for('payments.pending') }}" class="text-decoration-none text-danger">Review pending <i class="bi bi-arrow-right"></i></a></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card accent">
+      <div class="stat-icon accent"><i class="bi bi-calendar-check"></i></div>
+      <div class="stat-value" style="font-size:20px">₹{{ "{:,.0f}".format(stats.monthly_collection) }}</div>
+      <div class="stat-label">This Month's Collection</div>
+      <div class="stat-sub">
+        {% if stats.month_delta_pct >= 0 %}
+        <span class="delta-up"><i class="bi bi-arrow-up-short"></i>{{ stats.month_delta_pct }}%</span>
+        {% else %}
+        <span class="delta-down"><i class="bi bi-arrow-down-short"></i>{{ stats.month_delta_pct|abs }}%</span>
+        {% endif %}
+        vs last month
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row 1 -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-8">
+    <div class="card">
+      <div class="card-header-custom">
+        <h5><i class="bi bi-graph-up me-2 text-primary-brand"></i>Monthly Collection Trend (12 Months)</h5>
+      </div>
+      <div class="card-body">
+        <canvas id="monthlyChart" height="90"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card">
+      <div class="card-header-custom">
+        <h5><i class="bi bi-pie-chart-fill me-2 text-primary-brand"></i>Loan Distribution</h5>
+      </div>
+      <div class="card-body">
+        <canvas id="loanDistChart" height="170"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row 2 + Recent Activity -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-6">
+    <div class="card">
+      <div class="card-header-custom">
+        <h5><i class="bi bi-bar-chart-fill me-2 text-primary-brand"></i>Collection vs Pending (6 Months)</h5>
+      </div>
+      <div class="card-body">
+        <canvas id="perfChart" height="140"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card">
+      <div class="card-header-custom">
+        <h5><i class="bi bi-person-check me-2 text-primary-brand"></i>Top Borrowers</h5>
+      </div>
+      <div class="card-body">
+        <canvas id="topBorrowersChart" height="140"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row g-3 mb-3">
+  <div class="col-12">
+    <div class="quick-actions">
+      <a href="{{ url_for('payments.collect') }}" class="quick-action success">
+        <i class="bi bi-receipt-cutoff"></i>
+        <div><span class="qa-title">Collect EMI</span><span class="qa-sub">Record new payment</span></div>
+      </a>
+      <a href="{{ url_for('loans.create') }}" class="quick-action primary">
+        <i class="bi bi-file-earmark-plus"></i>
+        <div><span class="qa-title">New Loan</span><span class="qa-sub">Create loan agreement</span></div>
+      </a>
+      <a href="{{ url_for('customers.add') }}" class="quick-action secondary">
+        <i class="bi bi-person-plus-fill"></i>
+        <div><span class="qa-title">Add Customer</span><span class="qa-sub">Register borrower</span></div>
+      </a>
+      <a href="{{ url_for('reports.index') }}" class="quick-action accent">
+        <i class="bi bi-bar-chart-line-fill"></i>
+        <div><span class="qa-title">View Reports</span><span class="qa-sub">Export data</span></div>
+      </a>
+      <a href="{{ url_for('settlement.index') }}" class="quick-action warning">
+        <i class="bi bi-cash-stack"></i>
+        <div><span class="qa-title">Settlement</span><span class="qa-sub">Close loans early</span></div>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header-custom">
+        <h5><i class="bi bi-clock-history me-2 text-primary-brand"></i>Recent Collections</h5>
+        <a href="{{ url_for('payments.index') }}" class="btn btn-sm btn-outline-primary">View All <i class="bi bi-arrow-right ms-1"></i></a>
+      </div>
+      <div class="table-responsive">
+        <table class="table" id="recentTable">
+	          <thead>
+	            <tr>
+	              <th>Payment ID</th>
+	              <th>Customer</th>
+	              <th>Type</th>
+	              <th>Amount</th>
+	              <th>Date</th>
+	            </tr>
+	          </thead>
+          <tbody id="recentBody">
+            <tr><td colspan="5" class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Loading recent activity...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ─── DateTime clock
+function updateClock() {
+  const el = document.getElementById('current-datetime');
+  if (el) {
+    const now = new Date();
+    el.innerHTML = `<div class="dt-date"><i class="bi bi-calendar3 me-1"></i>${now.toLocaleDateString('en-IN', {weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
+    <div class="dt-time"><i class="bi bi-clock me-1"></i>${now.toLocaleTimeString('en-IN')}</div>`;
+  }
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+const PRIMARY = '#0F4C81';
+const SECONDARY = '#1B9C85';
+const ACCENT = '#F6A623';
+const DANGER = '#DC3545';
+const GREY = '#6B7A8D';
+
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.color = GREY;
+
+// Monthly Collection
+fetch('/api/chart/monthly-collection')
+  .then(r => r.json())
+  .then(data => {
+    new Chart(document.getElementById('monthlyChart'), {
+      type: 'line',
+      data: {
+        labels: data.labels,
+        datasets: [{
+          label: 'Collection (₹)',
+          data: data.values,
+          borderColor: PRIMARY,
+          backgroundColor: 'rgba(15,76,129,.08)',
+          tension: 0.4, fill: true,
+          pointBackgroundColor: PRIMARY,
+          pointRadius: 4, pointHoverRadius: 7,
+          borderWidth: 2.5
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.05)' },
+            ticks: { callback: v => '₹' + v.toLocaleString('en-IN') } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  });
+
+// Loan Distribution
+fetch('/api/chart/loan-distribution')
+  .then(r => r.json())
+  .then(data => {
+    new Chart(document.getElementById('loanDistChart'), {
+      type: 'doughnut',
+      data: {
+        labels: data.labels,
+        datasets: [{
+          data: data.values,
+          backgroundColor: [SECONDARY, GREY, DANGER],
+          borderWidth: 0, hoverOffset: 6
+        }]
+      },
+      options: {
+        cutout: '65%',
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true } }
+        }
+      }
+    });
+  });
+
+// Collection Performance
+fetch('/api/chart/collection-performance')
+  .then(r => r.json())
+  .then(data => {
+    new Chart(document.getElementById('perfChart'), {
+      type: 'bar',
+      data: {
+        labels: data.labels,
+        datasets: [
+          {label: 'Collected', data: data.collected, backgroundColor: SECONDARY, borderRadius: 5},
+          {label: 'Pending',   data: data.pending,   backgroundColor: 'rgba(220,53,69,.7)', borderRadius: 5}
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'top', labels: { usePointStyle: true } } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.05)' },
+            ticks: { callback: v => '₹' + v.toLocaleString('en-IN') } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  });
+
+// Top Borrowers
+fetch('/api/chart/top-borrowers')
+  .then(r => r.json())
+  .then(data => {
+    new Chart(document.getElementById('topBorrowersChart'), {
+      type: 'bar',
+      data: {
+        labels: data.labels,
+        datasets: [{
+          label: 'Loan Amount (₹)',
+          data: data.values,
+          backgroundColor: PRIMARY,
+          borderRadius: 5
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.05)' },
+            ticks: { callback: v => '₹' + v.toLocaleString('en-IN') } },
+          y: { grid: { display: false } }
+        }
+      }
+    });
+  });
+
+// Recent Activity
+fetch('/api/recent-activity')
+  .then(r => r.json())
+  .then(data => {
+    const tbody = document.getElementById('recentBody');
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>No collections yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(p => `
+	      <tr>
+	        <td><a href="/payments/receipt/${encodeURIComponent(p.payment_id)}" class="text-primary fw-600 font-mono">${escapeHtml(p.payment_id)}</a></td>
+	        <td>${escapeHtml(p.customer_name)}</td>
+	        <td><span class="badge-status ${escapeHtml(p.payment_type || 'emi')}">${escapeHtml((p.payment_type || 'EMI').toUpperCase())}</span></td>
+	        <td class="fw-700 text-success">₹${(p.paid_amount||0).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+	        <td class="text-muted">${escapeHtml(p.collection_date)}</td>
+	      </tr>`).join('');
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+{% block title %}Create Loan{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Create New Loan</h1>
+    <p class="page-subtitle">Issue a loan — interest calculated automatically from rate %</p>
+  </div>
+  <a href="{{ url_for('loans.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+
+<form method="POST" id="loanForm">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="row g-3">
+
+  <!-- ── Left column ─────────────────────────────────────────────────────── -->
+  <div class="col-xl-8">
+
+    <!-- Customer -->
+    <div class="card mb-3">
+      <div class="card-header-custom"><h5><i class="bi bi-person-fill me-2 text-primary-brand"></i>Customer Details</h5></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Customer Name *</label>
+            <input type="text" name="customer_name" id="customerName" class="form-control" required
+                   list="customerList" placeholder="Type to search or add new"
+                   value="{{ prefill_name }}"
+                   oninput="onNameChange(this.value)">
+            <datalist id="customerList">
+              {% for c in customers %}<option value="{{ c.name }}">{{ c.phone }}</option>{% endfor %}
+            </datalist>
+            <div id="customerHint" class="mt-1" style="font-size:12px"></div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Mobile Number</label>
+            <input type="text" name="phone" id="phoneField" class="form-control" placeholder="Phone number">
+          </div>
+          <div class="col-md-4"><label class="form-label">Ref</label>
+            <input type="text" name="ref" id="refInput" class="form-control" placeholder="Referrer" autocomplete="off"></div>
+          <div class="col-md-4"><label class="form-label">Follower (Staff)</label>
+            <input type="text" name="follower" id="followerInput" class="form-control" placeholder="Staff follower" autocomplete="off"></div>
+          <div class="col-md-4"><label class="form-label">Due Day</label>
+            <input type="text" name="due_day" class="form-control" placeholder="e.g. 25th"></div>
+        </div>
+
+        <!-- ── Guarantor Toggle ─────────────────────────────────────────────── -->
+        <div class="guarantor-toggle-row mt-3">
+          <div class="guarantor-toggle-label">
+            <i class="bi bi-shield-check"></i>
+            <div>
+              <div class="fw-600">Add Guarantor / Surety</div>
+              <div class="text-muted" style="font-size:12px">Enable if a third party is providing surety for this loan</div>
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" name="guarantor_enabled" id="guarantorEnabled" value="1" onchange="toggleGuarantor()">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div id="guarantorSection" class="guarantor-section" style="display:none">
+          <div class="guarantor-header">
+            <i class="bi bi-shield-fill-check me-2"></i>
+            <span>Guarantor Details</span>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Guarantor Name <span class="text-danger">*</span></label>
+              <input type="text" name="guarantor_name" id="guarantorName" class="form-control" placeholder="Full name of guarantor">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Guarantor Mobile Number <span class="text-danger">*</span></label>
+              <input type="text" name="guarantor_phone" id="guarantorPhone" class="form-control" placeholder="Phone number" maxlength="15">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Guarantor Address <span class="text-danger">*</span></label>
+              <textarea name="guarantor_address" id="guarantorAddress" class="form-control" rows="2" placeholder="Complete address of guarantor"></textarea>
+            </div>
+            <div class="col-12">
+              <div class="guarantor-surety-note" id="suretyPreview">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                <span id="suretyText">Guarantor gives the surety to the customer.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Existing loans for this customer -->
+        <div id="existingLoansBox" class="mt-3" style="display:none">
+          <div class="alert alert-info py-2 mb-2" style="font-size:13px">
+            <i class="bi bi-info-circle me-1"></i>
+            <strong id="existingCount"></strong> active loan(s) found for this customer:
+          </div>
+          <div id="existingLoansTable"></div>
+          <div class="d-flex gap-2 mt-2" id="loanActionBtns" style="display:none!important">
+            <div class="p-3 rounded flex-fill" style="background:rgba(15,76,129,.06);border:1px solid rgba(15,76,129,.2)">
+              <div class="fw-600 mb-1" style="font-size:13px"><i class="bi bi-plus-circle me-1 text-primary-brand"></i>Option A — New Separate Loan</div>
+              <div class="text-muted" style="font-size:12px">Creates a new loan number (e.g. AGM0042) for the same customer with a different interest rate or terms.</div>
+              <div class="mt-2 text-muted" style="font-size:12px">✅ Already on this form — just fill in the fields below and submit.</div>
+            </div>
+            <div class="p-3 rounded flex-fill" style="background:rgba(27,156,133,.06);border:1px solid rgba(27,156,133,.2)">
+              <div class="fw-600 mb-1" style="font-size:13px"><i class="bi bi-layers me-1 text-secondary-brand"></i>Option B — Top-Up Existing Loan</div>
+              <div class="text-muted" style="font-size:12px">Adds amount to an existing loan, keeping the same loan number and interest rate. Balance updated.</div>
+              <div id="topupLinks" class="mt-2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Financials -->
+    <div class="card mb-3">
+      <div class="card-header-custom"><h5><i class="bi bi-cash-coin me-2 text-primary-brand"></i>Loan Financials</h5></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Loan No (auto or manual)</label>
+            <input type="text" name="manual_loan_id" id="manualLoanId" class="form-control font-mono"
+                   placeholder="Leave blank = auto (e.g. AGM0042)" oninput="this.value=this.value.toUpperCase()">
+            <div id="loanIdStatus" class="mt-1" style="font-size:12px"></div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Loan Date *</label>
+            <input type="date" name="loan_date" class="form-control" value="{{ today }}" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Loan Amount (₹) *</label>
+            <div class="input-group">
+              <span class="input-group-text">₹</span>
+              <input type="number" name="loan_amount" id="loanAmount" class="form-control"
+                     min="0" step="1" required placeholder="e.g. 50000" oninput="calc()">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Document Charge (₹)</label>
+            <div class="input-group">
+              <span class="input-group-text">₹</span>
+              <input type="number" name="document_charge" id="docCharge" class="form-control"
+                     min="0" step="1" oninput="calc()">
+            </div>
+          </div>
+
+          <!-- Interest rate input → auto-calculates interest amount -->
+          <div class="col-md-4">
+            <label class="form-label">Interest Rate (% per month) <small class="text-muted">(auto-calculated)</small></label>
+            <div class="input-group">
+              <input type="number" name="interest_rate" id="interestRate" class="form-control bg-light"
+                     min="0" max="100" step="0.01" placeholder="Auto from interest amount" readonly tabindex="-1">
+              <span class="input-group-text">%/mo</span>
+            </div>
+            <div class="mt-1" style="font-size:11px;color:var(--text-secondary)">
+              Rate = Interest ÷ (Loan Amount × Tenure) × 100
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Principle Amount (₹)</label>
+            <div class="input-group">
+              <span class="input-group-text">₹</span>
+              <input type="number" name="principle_amount" id="principleAmt"
+                     class="form-control bg-light" readonly tabindex="-1">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Interest Amount (₹) *</label>
+            <div class="input-group">
+              <span class="input-group-text">₹</span>
+              <input type="number" name="interest_amount" id="interestAmt"
+                     class="form-control" step="0.01" min="0" required
+                     placeholder="e.g. 7290" oninput="calc()">
+            </div>
+            <div class="mt-1" style="font-size:11px;color:var(--text-secondary)">
+              Enter the total interest for this loan
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Agreement Value (₹)</label>
+            <div class="input-group">
+              <span class="input-group-text">₹</span>
+              <input type="number" name="agreement_value" id="agreementVal"
+                     class="form-control bg-light" readonly tabindex="-1">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Tenure (Months) *</label>
+            <input type="number" name="tenure" id="tenureField" class="form-control"
+                   min="1" required oninput="calc()">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Due Amount / Month (₹)</label>
+            <div class="input-group">
+              <span class="input-group-text">₹</span>
+              <input type="number" name="due_amount" id="dueAmount"
+                     class="form-control bg-light" readonly tabindex="-1">
+            </div>
+          </div>
+
+          <div class="col-md-4"><label class="form-label">Paid Due (Months)</label>
+            <input type="number" name="paid_due" class="form-control" min="0" value="0"></div>
+          <div class="col-md-4"><label class="form-label">Paid Amount (₹)</label>
+            <input type="number" name="paid_amount" class="form-control" min="0" value="0" step="0.01"></div>
+          <div class="col-md-4"><label class="form-label">Feature Dues (Remaining)</label>
+            <input type="number" name="feature_dues" id="featureDues" class="form-control" min="0" value="0"></div>
+          <div class="col-md-4"><label class="form-label">Balance Agreement (₹)</label>
+            <input type="number" name="balance_agreement" id="balanceAgreement" class="form-control" min="0" step="0.01"></div>
+          <!-- hidden int_pct store -->
+          <input type="hidden" name="int_pct" id="intPct">
+        </div>
+      </div>
+    </div>
+
+    <!-- Vehicle & Document -->
+    <div class="card mb-3">
+      <div class="card-header-custom"><h5><i class="bi bi-scooter me-2 text-primary-brand"></i>Vehicle & Document</h5></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-5"><label class="form-label">Vehicle Model</label>
+            <input type="text" name="vehicle_model" class="form-control" placeholder="e.g. Hero SPL+ / 2019"></div>
+          <div class="col-md-3"><label class="form-label">Vehicle Number</label>
+            <input type="text" name="vehicle_number" id="vehicleNumberInput" class="form-control" placeholder="e.g. TN95B9425" autocomplete="off"></div>
+          <div class="col-md-4"><label class="form-label">Document Status</label>
+            <select name="document_status" class="form-select">
+              <option value="">-- Select --</option>
+              {% for opt in ['Collected','Yet to be received from IBL','book only Received','NOC Pending','ORC Pending','ORC NOC Pending','Photo Pending','RC Pending','Invoice','Received'] %}
+              <option value="{{ opt }}">{{ opt }}</option>{% endfor %}
+            </select></div>
+          <div class="col-12"><label class="form-label">Remarks</label>
+            <textarea name="remarks" class="form-control" rows="2"></textarea></div>
+          <div class="col-md-6"><label class="form-label">Father Name</label>
+            <input type="text" name="father_name" class="form-control" placeholder="Father's name"></div>
+          <div class="col-md-6"><label class="form-label">Vehicle Cost (₹)</label>
+            <input type="number" name="vehicle_cost" class="form-control" min="0" step="1"></div>
+          <div class="col-md-4"><label class="form-label">Address Line 1</label>
+            <input type="text" name="address1" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Address Line 2</label>
+            <input type="text" name="address2" class="form-control"></div>
+          <div class="col-md-2"><label class="form-label">Address Line 3</label>
+            <input type="text" name="address3" class="form-control"></div>
+          <div class="col-md-2"><label class="form-label">Pincode</label>
+            <input type="text" name="pincode" class="form-control" maxlength="6"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Penalty -->
+    <div class="card mb-3">
+      <div class="card-header-custom"><h5><i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>Penalty (if applicable)</h5></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4"><label class="form-label">Penalty Amount (₹)</label>
+            <input type="number" name="penalty_amount" class="form-control" min="0" step="0.01" value="0"></div>
+          <div class="col-md-8"><label class="form-label">Penalty Description</label>
+            <input type="text" name="penalty_description" class="form-control"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Right: Live Summary ──────────────────────────────────────────────── -->
+  <div class="col-xl-4">
+    <div class="card" style="position:sticky;top:80px">
+      <div class="card-header-custom"><h5><i class="bi bi-calculator me-2 text-secondary-brand"></i>Live Summary</h5></div>
+      <div class="card-body">
+        <div class="text-center mb-3">
+          <div class="text-muted" style="font-size:11px;font-weight:600;text-transform:uppercase">Monthly Due</div>
+          <div id="dueDisplay" style="font-size:38px;font-weight:800;color:var(--secondary)">₹ —</div>
+        </div>
+        <table class="table table-sm mb-3" style="font-size:13px">
+          <tr><td class="text-muted">Loan Amount</td>    <td id="s_loan" class="text-end fw-600">—</td></tr>
+          <tr><td class="text-muted">Doc Charge</td>     <td id="s_doc"  class="text-end">—</td></tr>
+          <tr><td class="text-muted">Principle</td>      <td id="s_prin" class="text-end fw-600">—</td></tr>
+          <tr><td class="text-muted">Rate (% × months)</td><td id="s_rate" class="text-end text-warning">—</td></tr>
+          <tr><td class="text-muted">Interest</td>       <td id="s_int"  class="text-end text-warning fw-600">—</td></tr>
+          <tr class="table-primary fw-700"><td>Agreement</td><td id="s_agr" class="text-end">—</td></tr>
+          <tr><td class="text-muted">Tenure</td>         <td id="s_ten"  class="text-end">—</td></tr>
+        </table>
+
+        <!-- Formula reminder -->
+        <div class="p-2 rounded mb-3" style="background:var(--bg);font-size:12px;color:var(--text-secondary)">
+          <div class="fw-600 mb-1">Formula (Flat Rate)</div>
+          <code style="font-size:11px">
+            Principle = Loan - Doc Charge<br>
+            Interest = Principle × Rate% × Months<br>
+            Agreement = Principle + Interest<br>
+            Due/Month = Agreement ÷ Tenure
+          </code>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">
+          <i class="bi bi-check-lg me-2"></i>Create Loan
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function fmt(n){ return '₹' + parseFloat(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+// ─── Guarantor toggle ─────────────────────────────────────────────────────
+function toggleGuarantor(){
+  const cb  = document.getElementById('guarantorEnabled');
+  const sec = document.getElementById('guarantorSection');
+  const name  = document.getElementById('guarantorName');
+  const phone = document.getElementById('guarantorPhone');
+  const addr  = document.getElementById('guarantorAddress');
+  if(cb.checked){
+    sec.style.display = 'block';
+    name.required = true; phone.required = true; addr.required = true;
+    updateSuretyPreview();
+  } else {
+    sec.style.display = 'none';
+    name.required = false; phone.required = false; addr.required = false;
+  }
+}
+function updateSuretyPreview(){
+  const gName = (document.getElementById('guarantorName').value || '').trim();
+  const cName = (document.getElementById('customerName').value || '').trim();
+  const el = document.getElementById('suretyText');
+  if(gName && cName){
+    el.innerHTML = '<strong>' + escapeHtml(gName) + '</strong> gives the surety to the customer <strong>' + escapeHtml(cName) + '</strong>.';
+  } else if(gName){
+    el.innerHTML = '<strong>' + escapeHtml(gName) + '</strong> gives the surety to the customer.';
+  } else {
+    el.textContent = 'Guarantor gives the surety to the customer.';
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const gn = document.getElementById('guarantorName');
+  const cn = document.getElementById('customerName');
+  if(gn) gn.addEventListener('input', updateSuretyPreview);
+  if(cn) cn.addEventListener('input', updateSuretyPreview);
+});
+
+function calc(){
+  const loan     = parseFloat(document.getElementById('loanAmount').value)    || 0;
+  const doc      = parseFloat(document.getElementById('docCharge').value)      || 0;
+  const interest = parseFloat(document.getElementById('interestAmt').value)   || 0;
+  const ten      = parseInt(document.getElementById('tenureField').value)      || 0;
+  const prin     = Math.round((loan - doc)*100)/100;
+  
+  let rate = 0;
+  if (loan > 0 && ten > 0) {
+    rate = (interest / (loan * ten)) * 100;
+  }
+  document.getElementById('interestRate').value = rate.toFixed(2);
+  
+  const agr = Math.round((prin + interest)*100)/100;
+  // Monthly Due should always be Rounded
+  const due = ten ? Math.ceil(agr/ten) : 0;
+
+  document.getElementById('principleAmt').value  = prin.toFixed(2);
+  document.getElementById('agreementVal').value  = agr.toFixed(2);
+  document.getElementById('dueAmount').value     = due;
+  document.getElementById('featureDues').value   = ten;
+  document.getElementById('balanceAgreement').value = agr.toFixed(2);
+  document.getElementById('intPct').value        = rate ? rate.toFixed(2) + '%' : '';
+
+  // summary panel
+  document.getElementById('dueDisplay').textContent = due ? '₹' + due.toLocaleString('en-IN') : '₹ —';
+  document.getElementById('s_loan').textContent = loan ? fmt(loan) : '—';
+  document.getElementById('s_doc').textContent  = fmt(doc);
+  document.getElementById('s_prin').textContent = fmt(prin);
+  document.getElementById('s_rate').textContent = rate ? `${rate.toFixed(2)}% × ${ten} mo` : '—';
+  document.getElementById('s_int').textContent  = fmt(interest);
+  document.getElementById('s_agr').textContent  = fmt(agr);
+  document.getElementById('s_ten').textContent  = ten ? ten + ' months' : '—';
+}
+
+// ─── Loan ID duplicate check ──────────────────────────────────────────────────
+attachLoanIdCheck(document.getElementById('manualLoanId'), document.getElementById('loanIdStatus'));
+
+// Customer lookup + existing loans check
+let _lookupTimer;
+function onNameChange(name){
+  clearTimeout(_lookupTimer);
+  _lookupTimer = setTimeout(()=>{ lookupCustomer(name); fetchExistingLoans(name); }, 500);
+}
+
+async function lookupCustomer(name){
+  if(!name) return;
+  const r = await fetch('/api/customer-by-name?name='+encodeURIComponent(name));
+  const d = await r.json();
+  const hint = document.getElementById('customerHint');
+  if(d.found){
+    document.getElementById('phoneField').value = d.phone||'';
+    hint.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Existing customer</span>';
+  } else {
+    hint.innerHTML = '<span class="text-primary"><i class="bi bi-person-plus me-1"></i>New customer — will be created</span>';
+  }
+}
+
+async function fetchExistingLoans(name){
+  if(!name){ document.getElementById('existingLoansBox').style.display='none'; return; }
+  const r = await fetch('/loans/customer-loans/'+encodeURIComponent(name));
+  const loans = await r.json();
+  const box  = document.getElementById('existingLoansBox');
+  if(!loans.length){ box.style.display='none'; return; }
+
+  document.getElementById('existingCount').textContent = loans.length;
+  let rows = loans.map(l=>`
+    <tr>
+      <td><a href="/loans/${l.loan_id}" target="_blank" class="font-mono fw-600">${l.loan_id}</a></td>
+      <td>₹${l.loan_amount.toLocaleString('en-IN')}</td>
+      <td class="text-danger fw-600">₹${l.balance_agreement.toLocaleString('en-IN')}</td>
+      <td>${l.interest_rate}%/mo</td>
+      <td><span class="badge-status ${l.loan_status}">${l.loan_status}</span></td>
+      <td><a href="/loans/${l.loan_id}/topup" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:12px">Top-Up</a></td>
+    </tr>`).join('');
+
+  document.getElementById('existingLoansTable').innerHTML =
+    `<table class="table table-sm mb-2" style="font-size:13px">
+      <thead><tr><th>Loan No</th><th>Amount</th><th>Balance</th><th>Rate</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
+
+  let topupLinks = loans.map(l=>
+    `<a href="/loans/${l.loan_id}/topup" class="btn btn-sm btn-outline-secondary mb-1 d-block">
+       <i class="bi bi-layers me-1"></i>Top-Up ${l.loan_id} (bal ₹${l.balance_agreement.toLocaleString('en-IN')})
+     </a>`).join('');
+  document.getElementById('topupLinks').innerHTML = topupLinks;
+  document.getElementById('loanActionBtns').style.display = 'flex';
+  box.style.display = 'block';
+}
+
+// Auto-trigger if customer name pre-filled (from querystring)
+const prefill = document.getElementById('customerName').value;
+if(prefill){ lookupCustomer(prefill); fetchExistingLoans(prefill); }
+
+// ── Autocomplete + Loan ID duplicate check ────────────────────────────────────
+attachAutocomplete(document.getElementById('customerName'), 'customers', (item) => {
+  onNameChange(item.value);
+});
+attachAutocomplete(document.getElementById('vehicleNumberInput'), 'vehicle');
+attachAutocomplete(document.getElementById('refInput'), 'refs');
+attachAutocomplete(document.getElementById('followerInput'), 'followers');
+attachLoanIdCheck(document.getElementById('manualLoanId'), document.getElementById('loanIdStatus'));
+</script>
+{% endblock %}

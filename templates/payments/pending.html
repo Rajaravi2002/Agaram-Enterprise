@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Pending Dues{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Pending Dues</h1>
+    <p class="page-subtitle">{{ pending_list|length }} loan(s) have carry-forward pending amounts</p>
+  </div>
+  <a href="{{ url_for('reports.export_excel_pending') }}" class="btn btn-outline-success">
+    <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+  </a>
+</div>
+
+{% set total_pending = pending_list|sum(attribute='latest_pending') %}
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="stat-card danger">
+      <div class="stat-icon danger"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <div class="stat-value">{{ pending_list|length }}</div>
+      <div class="stat-label">Loans with Pending</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card warning">
+      <div class="stat-icon warning"><i class="bi bi-currency-rupee"></i></div>
+      <div class="stat-value" style="font-size:20px">₹{{ "{:,.0f}".format(total_pending) }}</div>
+      <div class="stat-label">Total Pending Amount</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Loan No</th>
+          <th>Customer</th>
+          <th>Phone</th>
+          <th>Monthly Due</th>
+          <th>Carry Forward</th>
+          <th>Next Total Due</th>
+          <th>Last Payment</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in pending_list %}
+        <tr>
+          <td><a href="{{ url_for('loans.view', loan_id=item.loan_id) }}"
+                 class="font-mono text-primary fw-600">{{ item.loan_id }}</a></td>
+          <td class="fw-600">{{ item.customer_name }}</td>
+          <td>{{ item.phone }}</td>
+          <td>₹{{ "{:,.2f}".format(item.due_amount) }}</td>
+          <td class="text-warning fw-700">₹{{ "{:,.2f}".format(item.latest_pending) }}</td>
+          <td class="text-danger fw-700" style="font-size:15px">
+            ₹{{ "{:,.2f}".format(item.due_amount + item.latest_pending) }}
+          </td>
+          <td class="text-muted">{{ item.last_payment_date_str }}</td>
+          <td><span class="badge-status {{ item.loan_status }}">{{ item.loan_status|title }}</span></td>
+          <td>
+            <a href="{{ url_for('payments.collect') }}?loan_id={{ item.loan_id }}"
+               class="btn btn-sm btn-success">
+              <i class="bi bi-receipt-cutoff me-1"></i>Collect
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9">
+            <div class="empty-state">
+              <i class="bi bi-check-circle-fill text-success"></i>
+              <h6 class="text-success">All caught up! No pending dues.</h6>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

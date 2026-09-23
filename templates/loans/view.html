@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}{{ loan.loan_id }}
+{% if topup_history %}
+<div class="card mb-3">
+  <div class="card-header-custom">
+    <h5><i class="bi bi-layers me-2 text-secondary-brand"></i>Top-Up History ({{ topup_history|length }})</h5>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" style="font-size:13px">
+      <thead><tr><th>Date</th><th>Added Amount</th><th>Doc Charge</th><th>New Loan Total</th><th>New Agreement</th><th>New Due/Mo</th><th>Note</th><th>By</th></tr></thead>
+      <tbody>
+        {% for t in topup_history %}
+        <tr>
+          <td>{{ t.date }}</td>
+          <td class="text-success fw-600">₹{{ "{:,.0f}".format(t.added_amount) }}</td>
+          <td>₹{{ "{:,.0f}".format(t.doc_charge or 0) }}</td>
+          <td class="fw-600">₹{{ "{:,.0f}".format(t.new_loan_total) }}</td>
+          <td>₹{{ "{:,.0f}".format(t.new_agreement) }}</td>
+          <td class="fw-600 text-secondary-brand">₹{{ "{:,.0f}".format(t.new_due) }}</td>
+          <td class="text-muted">{{ t.note or '—' }}</td>
+          <td class="text-muted">{{ t.by }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if other_loans %}
+<div class="card mb-3">
+  <div class="card-header-custom">
+    <h5><i class="bi bi-person-lines-fill me-2 text-primary-brand"></i>Other Loans for {{ loan.customer_name }} ({{ other_loans|length }})</h5>
+    <a href="{{ url_for('loans.create') }}?customer_name={{ loan.customer_name|urlencode }}" class="btn btn-sm btn-primary">
+      <i class="bi bi-plus me-1"></i>New Loan
+    </a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" style="font-size:13px">
+      <thead><tr><th>Loan No</th><th>Amount</th><th>Rate</th><th>Due/Mo</th><th>Balance</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for ol in other_loans %}
+        <tr>
+          <td><a href="{{ url_for('loans.view', loan_id=ol.loan_id) }}" class="font-mono text-primary fw-600">{{ ol.loan_id }}</a></td>
+          <td>₹{{ "{:,.0f}".format(ol.loan_amount) }}</td>
+          <td>{{ ol.interest_rate }}%/mo</td>
+          <td>₹{{ "{:,.0f}".format(ol.due_amount) }}</td>
+          <td class="{% if ol.balance_agreement > 0 %}text-danger fw-600{% else %}text-success{% endif %}">₹{{ "{:,.0f}".format(ol.balance_agreement) }}</td>
+          <td><span class="badge-status {{ ol.loan_status }}">{{ ol.loan_status|title }}</span></td>
+          <td>
+            <a href="{{ url_for('loans.view', loan_id=ol.loan_id) }}" class="btn btn-sm btn-outline-primary btn-icon"><i class="bi bi-eye"></i></a>
+            {% if ol.loan_status in ('active','overdue') %}
+            <a href="{{ url_for('loans.topup', loan_id=ol.loan_id) }}" class="btn btn-sm btn-outline-success btn-icon" title="Top-Up"><i class="bi bi-layers"></i></a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-title">{{ loan.loan_id }}</h1><p class="page-subtitle">{{ loan.customer_name }}</p></div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if loan.loan_status in ('active','overdue') %}
+    <a href="{{ url_for('payments.collect') }}?loan_id={{ loan.loan_id }}" class="btn btn-success"><i class="bi bi-receipt-cutoff me-1"></i>Collect EMI</a>
+    <a href="{{ url_for('loans.penalty', loan_id=loan.loan_id) }}" class="btn btn-warning"><i class="bi bi-exclamation-triangle me-1"></i>Set Penalty</a>
+    {% endif %}
+    <a href="{{ url_for('loans.topup', loan_id=loan.loan_id) }}" class="btn btn-outline-success"
+       title="Add amount to this loan, same loan number">
+      <i class="bi bi-layers me-2"></i>Top-Up
+    </a>
+    <a href="{{ url_for('loans.create') }}?customer_name={{ loan.customer_name|urlencode }}" class="btn btn-outline-primary"
+       title="New loan for same customer, new loan number">
+      <i class="bi bi-file-earmark-plus me-1"></i>New Loan
+    </a>
+    <a href="{{ url_for('loans.edit', loan_id=loan.loan_id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1"></i>Edit</a>
+    {% if current_user.is_admin and loan.loan_status == 'active' %}
+    <form method="POST" action="{{ url_for('loans.mark_overdue', loan_id=loan.loan_id) }}" class="d-inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-outline-warning" data-confirm="Mark as overdue?">Overdue</button>
+    </form>
+    <form method="POST" action="{{ url_for('loans.close', loan_id=loan.loan_id) }}" class="d-inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-outline-secondary" data-confirm="Close this loan?">Close</button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('loans.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+  </div>
+</div>
+
+{% if overdue and loan.penalty_amount == 0 %}
+<div class="alert alert-danger mb-3">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+  This loan is <strong>overdue</strong>. Please
+  <a href="{{ url_for('loans.penalty', loan_id=loan.loan_id) }}" class="alert-link">set a penalty amount</a>.
+</div>
+{% endif %}
+
+<!-- KPI row -->
+<div class="row g-3 mb-3">
+  <div class="col-md-3"><div class="stat-card primary"><div class="stat-icon primary"><i class="bi bi-bank"></i></div>
+    <div class="stat-value" style="font-size:20px">₹{{ "{:,.0f}".format(loan.loan_amount) }}</div><div class="stat-label">Loan Amount</div></div></div>
+  <div class="col-md-3"><div class="stat-card secondary"><div class="stat-icon secondary"><i class="bi bi-calendar-check"></i></div>
+    <div class="stat-value" style="font-size:20px">₹{{ "{:,.0f}".format(loan.due_amount) }}</div><div class="stat-label">Monthly Due</div></div></div>
+  <div class="col-md-3"><div class="stat-card success"><div class="stat-icon success"><i class="bi bi-check-circle-fill"></i></div>
+    <div class="stat-value" style="font-size:20px">₹{{ "{:,.0f}".format(loan.paid_amount) }}</div><div class="stat-label">Total Paid</div></div></div>
+  <div class="col-md-3"><div class="stat-card {% if loan.balance_agreement > 0 %}danger{% else %}success{% endif %}"><div class="stat-icon {% if loan.balance_agreement > 0 %}danger{% else %}success{% endif %}"><i class="bi bi-hourglass-split"></i></div>
+    <div class="stat-value" style="font-size:20px">₹{{ "{:,.0f}".format(loan.balance_agreement) }}</div><div class="stat-label">Balance</div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header-custom"><h5>Loan Details</h5></div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <tbody>
+            <tr><td class="text-muted ps-3" style="width:40%">Loan No</td><td class="fw-700 font-mono">{{ loan.loan_id }}</td></tr>
+            <tr><td class="text-muted ps-3">Customer</td><td class="fw-600">{{ loan.customer_name }}</td></tr>
+            <tr><td class="text-muted ps-3">Mobile</td><td>{{ loan.phone or '—' }}</td></tr>
+            <tr><td class="text-muted ps-3">Ref</td><td>{{ loan.ref or '—' }}</td></tr>
+            <tr><td class="text-muted ps-3">Follower</td><td>{{ loan.follower or '—' }}</td></tr>
+            <tr><td class="text-muted ps-3">Loan Date</td><td>{{ loan.loan_date }}</td></tr>
+            <tr><td class="text-muted ps-3">Due Day</td><td>{{ loan.due_day or '—' }}</td></tr>
+            <tr><td class="text-muted ps-3">Loan Amount</td><td>₹{{ "{:,.2f}".format(loan.loan_amount) }}</td></tr>
+            <tr><td class="text-muted ps-3">Document Charge</td><td>₹{{ "{:,.2f}".format(loan.document_charge) }}</td></tr>
+            <tr><td class="text-muted ps-3">Principle Amount</td><td>₹{{ "{:,.2f}".format(loan.principle_amount) }}</td></tr>
+            <tr><td class="text-muted ps-3">Interest Amount</td><td class="text-warning fw-600">₹{{ "{:,.2f}".format(loan.interest_amount) }}</td></tr>
+            <tr><td class="text-muted ps-3">Interest Rate</td><td class="fw-600">{{ loan.interest_rate }}%/month</td></tr>
+            <tr><td class="text-muted ps-3">Agreement Value</td><td class="fw-700 text-primary-brand">₹{{ "{:,.2f}".format(loan.agreement_value) }}</td></tr>
+            <tr><td class="text-muted ps-3">Tenure</td><td>{{ loan.tenure }} months</td></tr>
+            <tr><td class="text-muted ps-3">Due Amount/Month</td><td class="fw-700 text-secondary-brand">₹{{ "{:,.2f}".format(loan.due_amount) }}</td></tr>
+            <tr><td class="text-muted ps-3">Interest %</td><td>{{ loan.int_pct or '—' }}</td></tr>
+            <tr><td class="text-muted ps-3">Paid Due (Months)</td><td>{{ loan.paid_due }} / {{ loan.tenure }}</td></tr>
+            <tr><td class="text-muted ps-3">Feature Dues</td><td>{{ loan.feature_dues }}</td></tr>
+            <tr><td class="text-muted ps-3">Balance Agreement</td><td class="fw-700 {% if loan.balance_agreement>0 %}text-danger{% else %}text-success{% endif %}">₹{{ "{:,.2f}".format(loan.balance_agreement) }}</td></tr>
+            <tr><td class="text-muted ps-3">Vehicle Model</td><td>{{ loan.vehicle_model or '—' }}</td></tr>
+            <tr><td class="text-muted ps-3">Vehicle Number</td><td class="font-mono fw-600">{{ loan.vehicle_number or '—' }}</td></tr>
+            <tr><td class="text-muted ps-3">Document Status</td><td><span class="badge {% if loan.document_status=='Collected' or loan.document_status=='Received' %}bg-success{% elif 'Pending' in (loan.document_status or '') %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ loan.document_status or '—' }}</span></td></tr>
+            {% if loan.penalty_amount %}
+            <tr><td class="text-muted ps-3">Penalty Amount</td><td class="text-danger fw-700">₹{{ "{:,.2f}".format(loan.penalty_amount) }}</td></tr>
+            <tr><td class="text-muted ps-3">Penalty Reason</td><td>{{ loan.penalty_description }}</td></tr>
+            {% endif %}
+            <tr><td class="text-muted ps-3">Status</td><td><span class="badge-status {{ loan.loan_status }}">{{ loan.loan_status|title }}</span></td></tr>
+            {% if loan.remarks %}<tr><td class="text-muted ps-3">Remarks</td><td>{{ loan.remarks }}</td></tr>{% endif %}
+          </tbody>
+        </table>
+        <!-- Progress -->
+        {% set pct = [(loan.paid_due / loan.tenure * 100) if loan.tenure else 0, 100]|min %}
+        <div class="px-3 pb-3 mt-2">
+          <div class="d-flex justify-content-between mb-1" style="font-size:12px">
+            <span class="text-muted">Repayment Progress</span><span class="fw-600">{{ "%.0f"|format(pct) }}%</span>
+          </div>
+          <div class="progress" style="height:8px;border-radius:6px">
+            <div class="progress-bar bg-success" style="width:{{ pct }}%;border-radius:6px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-5">
+    {% if loan.guarantor_enabled %}
+    <div class="card mb-3">
+      <div class="card-header-custom">
+        <h5><i class="bi bi-shield-fill-check me-2 text-success"></i>Guarantor / Surety</h5>
+      </div>
+      <div class="card-body">
+        <div class="guarantor-surety-note mb-3">
+          <i class="bi bi-info-circle-fill me-2"></i>
+          <span><strong>{{ loan.guarantor_name }}</strong> gives the surety to the customer <strong>{{ loan.customer_name }}</strong>.</span>
+        </div>
+        <table class="table table-sm mb-0" style="font-size:13px">
+          <tbody>
+            <tr><td class="text-muted" style="width:40%">Name</td><td class="fw-600">{{ loan.guarantor_name or '—' }}</td></tr>
+            <tr><td class="text-muted">Mobile</td><td class="fw-600">{{ loan.guarantor_phone or '—' }}</td></tr>
+            <tr><td class="text-muted">Address</td><td>{{ loan.guarantor_address or '—' }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+    <div class="card">
+      <div class="card-header-custom">
+        <h5>Payment History ({{ payments|length }})</h5>
+        {% if loan.loan_status in ('active','overdue') %}
+        <a href="{{ url_for('payments.collect') }}?loan_id={{ loan.loan_id }}" class="btn btn-sm btn-success">Collect</a>
+        {% endif %}
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>#</th><th>Pay ID</th><th>Date</th><th>Type</th><th>Due</th><th>Paid</th><th>Principal</th><th>Interest</th><th>Pending</th></tr></thead>
+          <tbody>
+            {% for p in payments %}
+            <tr>
+              <td>{{ p.month_number }}</td>
+              <td><a href="{{ url_for('payments.receipt', payment_id=p.payment_id) }}" class="font-mono text-primary" style="font-size:11px">{{ p.payment_id }}</a></td>
+              <td>{{ p.collection_date }}</td>
+              <td><span class="badge-status {{ (p.payment_type or 'EMI')|lower }}" style="font-size:10px">{{ (p.payment_type or 'EMI')|title }}</span></td>
+              <td>₹{{ "{:,.0f}".format(p.total_due) }}</td>
+              <td class="text-success fw-600">₹{{ "{:,.0f}".format(p.paid_amount) }}</td>
+              <td class="text-primary-brand">₹{{ "{:,.0f}".format(p.principal_component or 0) }}</td>
+              <td class="text-secondary-brand">₹{{ "{:,.0f}".format(p.interest_component or 0) }}</td>
+              <td class="{% if p.pending_amount>0 %}text-danger fw-600{% else %}text-success{% endif %}">₹{{ "{:,.0f}".format(p.pending_amount) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-center text-muted py-3">No payments yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

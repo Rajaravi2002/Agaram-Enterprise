@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}Settlement Calculator{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Settlement Calculator</h1>
+    <p class="page-subtitle">Calculate settlement amount for any active loan</p>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Input card -->
+  <div class="col-xl-4">
+    <div class="card" style="position:sticky;top:80px">
+      <div class="card-header-custom">
+        <h5><i class="bi bi-calculator me-2 text-primary-brand"></i>Settlement Inputs</h5>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">Loan No *</label>
+          <input type="text" id="loanIdInput" class="form-control" list="loansList"
+                 value="{{ loan_id }}" placeholder="e.g. AGM0001"
+                 oninput="debounceCalc()">
+          <datalist id="loansList">
+            {% for l in active_loans %}
+            <option value="{{ l.loan_id }}">{{ l.customer_name }} — ₹{{ "{:,.0f}".format(l.balance_agreement) }} balance</option>
+            {% endfor %}
+          </datalist>
+          <div id="loanLookupStatus" class="mt-1" style="font-size:12px"></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Calculate As-Of Date</label>
+          <input type="date" id="asOfDate" class="form-control" value="{{ today }}" oninput="debounceCalc()">
+          <div class="mt-1 text-muted" style="font-size:11px">Leave as today or pick a future/past date</div>
+        </div>
+        <button class="btn btn-primary w-100" onclick="doCalc()">
+          <i class="bi bi-calculator me-2"></i>Calculate Settlement
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="col-xl-8">
+    <div id="resultBox" style="display:{% if result %}block{% else %}none{% endif %}">
+      
+      <!-- Settlement Collection Form -->
+      <div class="card mb-3">
+        <div class="card-header-custom">
+          <h5><i class="bi bi-cash-stack me-2 text-success"></i>Settlement Payment</h5>
+        </div>
+        <div class="card-body">
+          <form action="{{ url_for('settlement.collect') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="loan_id" id="form_loan_id" value="{% if result %}{{ result.loan_id }}{% endif %}">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label">Settlement Amount (₹)</label>
+                <input type="number" name="settlement_amount" id="form_settlement_amt" class="form-control bg-light" readonly 
+                       value="{% if result %}{{ result.settlement_amount }}{% endif %}">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Collection Amount (₹) *</label>
+                <input type="number" name="collected_amount" id="form_collected_amt" class="form-control border-success" step="0.01" required
+                       value="{% if result %}{{ result.settlement_amount }}{% endif %}">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Collection Date *</label>
+                <input type="date" name="collection_date" class="form-control" value="{{ today }}" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Payment Mode *</label>
+                <select name="payment_mode" class="form-select" required>
+                  <option value="Cash">Cash</option>
+                  <option value="UPI">UPI</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                </select>
+              </div>
+              <div class="col-md-9">
+                <label class="form-label">Remarks</label>
+                <input type="text" name="remarks" class="form-control" placeholder="Optional notes">
+              </div>
+              <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-success w-100">
+                  <i class="bi bi-check-circle me-1"></i>Collect Settlement
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Header banner -->
+      <div class="card mb-3" style="border-left:4px solid var(--primary)">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <div class="fw-700 fs-5" id="r_customer">{% if result %}{{ result.customer_name }}{% endif %}</div>
+              <div class="text-muted" id="r_loan_id" style="font-size:13px">{% if result %}{{ result.loan_id }}{% endif %}</div>
+            </div>
+            <div class="text-end">
+              <div class="text-muted" style="font-size:11px;text-transform:uppercase">Settlement Amount</div>
+              <div class="fw-800" style="font-size:32px;color:var(--primary)" id="r_settlement">
+                {% if result %}₹{{ "{:,.0f}".format(result.settlement_amount) }}{% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two column breakdown -->
+      <div class="row g-3 mb-3">
+        <!-- Loan info -->
+        <div class="col-md-6">
+          <div class="card h-100">
+            <div class="card-header-custom"><h5>Loan Details</h5></div>
+            <div class="card-body p-0">
+              <table class="table table-sm mb-0" style="font-size:13px">
+                <tbody>
+                  <tr><td class="text-muted ps-3">Agreement Date</td><td id="r_agr_date" class="fw-600">{% if result %}{{ result.agreement_date }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">Expiry Date</td><td id="r_exp_date">{% if result %}{{ result.expiry_date }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">As-of Date</td><td id="r_as_of">{% if result %}{{ result.as_of_date }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">Loan Amount</td><td id="r_loan_amt" class="fw-600">{% if result %}₹{{ "{:,.2f}".format(result.loan_amount) }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">Tenure</td><td id="r_tenure">{% if result %}{{ result.tenure }} months{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">EMI (Due/Month)</td><td id="r_emi">{% if result %}₹{{ "{:,.2f}".format(result.due_amount) }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">Interest Amount</td><td id="r_int_amt">{% if result %}₹{{ "{:,.2f}".format(result.interest_amount) }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">Principal / Month</td><td id="r_prin_mo">{% if result %}₹{{ "{:,.2f}".format(result.principal_per_month) }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">Interest / Month</td><td id="r_int_mo">{% if result %}₹{{ "{:,.2f}".format(result.interest_per_month) }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">Paid Months</td><td id="r_paid_mo">{% if result %}{{ result.paid_months }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">Balance Due</td><td id="r_bal_due" class="text-danger fw-600">{% if result %}₹{{ "{:,.2f}".format(result.balance_due) }}{% endif %}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Calculation breakdown -->
+        <div class="col-md-6">
+          <div class="card h-100">
+            <div class="card-header-custom"><h5>Settlement Breakdown</h5></div>
+            <div class="card-body p-0">
+              <table class="table table-sm mb-0" style="font-size:13px">
+                <tbody>
+                  <tr><td class="text-muted ps-3">Completed Months</td><td id="r_comp_mo" class="fw-600">{% if result %}{{ result.completed_months }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">Future Dues</td><td id="r_fut_dues">{% if result %}{{ result.future_dues }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">Advance Dues</td><td id="r_adv_dues">{% if result %}{{ result.advance_dues }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">Future Due Count</td><td id="r_fut_cnt" class="fw-600">{% if result %}{{ result.future_due_count }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">Future Total Dues</td><td id="r_fut_total">{% if result %}₹{{ "{:,.2f}".format(result.future_total_dues) }}{% endif %}</td></tr>
+                  <tr style="background:rgba(15,76,129,.04)"><td class="text-muted ps-3 fw-600">Future Principal</td><td id="r_fut_prin" class="fw-700 text-primary-brand">{% if result %}₹{{ "{:,.2f}".format(result.future_principal) }}{% endif %}</td></tr>
+                  <tr><td class="text-muted ps-3">Overdue Count</td><td id="r_od_cnt" class="text-danger">{% if result %}{{ result.overdue_count }}{% endif %}</td></tr>
+                  <tr style="background:rgba(220,53,69,.04)"><td class="text-muted ps-3 fw-600">Total Overdue</td><td id="r_od_amt" class="fw-700 text-danger">{% if result %}₹{{ "{:,.2f}".format(result.total_overdue) }}{% endif %}</td></tr>
+                  <tr style="background:rgba(246,166,35,.06)"><td class="text-muted ps-3 fw-600">FC Charges (5%)</td><td id="r_fc" class="fw-700" style="color:#c27d00">{% if result %}₹{{ "{:,.2f}".format(result.fc_charges) }}{% endif %}</td></tr>
+                </tbody>
+                <tfoot>
+                  <tr style="background:var(--primary)">
+                    <td class="fw-700 ps-3" style="color:white">Settlement Amount</td>
+                    <td id="r_settle_foot" class="fw-800" style="color:white;font-size:16px">{% if result %}₹{{ "{:,.0f}".format(result.settlement_amount) }}{% endif %}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formula reference -->
+      <div class="card">
+        <div class="card-header-custom"><h5><i class="bi bi-info-circle me-2 text-primary-brand"></i>Formula Reference</h5></div>
+        <div class="card-body">
+          <div class="row g-2" style="font-size:12px;font-family:monospace">
+            <div class="col-md-6">
+              <div class="p-2 rounded" style="background:var(--bg)">completed_months = min(months(agreement → today), tenure)<br>
+future_dues = tenure − completed_months<br>
+advance_dues = max(0, paid_months − completed_months)<br>
+future_due_count = future_dues − advance_dues</div>
+            </div>
+            <div class="col-md-6">
+              <div class="p-2 rounded" style="background:var(--bg)">future_principal = future_due_count × (loan_amount ÷ tenure)<br>
+overdue_count = max(0, completed_months − paid_months)<br>
+total_overdue = overdue_count × emi<br>
+fc_charges = future_principal × 5%<br>
+<strong>settlement = future_principal + total_overdue + fc_charges</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div id="emptyState" {% if result %}style="display:none"{% endif %}>
+      <div class="empty-state">
+        <i class="bi bi-calculator"></i>
+        <h6>Enter a Loan No to calculate settlement</h6>
+        <p class="text-muted">The settlement amount covers future principal, overdue amounts and FC charges.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let _calcTimer;
+function debounceCalc(){ clearTimeout(_calcTimer); _calcTimer = setTimeout(doCalc, 500); }
+
+function fmt(n){ return '₹' + parseFloat(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+async function doCalc(){
+  const id    = document.getElementById('loanIdInput').value.trim();
+  const asOf  = document.getElementById('asOfDate').value;
+  const status = document.getElementById('loanLookupStatus');
+  if(!id){ status.textContent=''; return; }
+
+  status.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Calculating…</span>';
+  try {
+    const r   = await fetch(`/settlement/calculate?loan_id=${encodeURIComponent(id)}&as_of=${asOf}`);
+    if(!r.ok){
+      status.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Loan not found</span>';
+      document.getElementById('resultBox').style.display   = 'none';
+      document.getElementById('emptyState').style.display  = 'block';
+      return;
+    }
+    const d = await r.json();
+    status.innerHTML = `<span class="text-success"><i class="bi bi-check-circle me-1"></i>${escapeHtml(d.customer_name)} — ${escapeHtml(d.agreement_date)}</span>`;
+
+    // Populate all result fields
+    const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+    const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+    
+    set('r_customer',   d.customer_name);
+    set('r_loan_id',    d.loan_id);
+    setVal('form_loan_id', d.loan_id);
+    setVal('form_settlement_amt', d.settlement_amount);
+    setVal('form_collected_amt', d.settlement_amount);
+    set('r_settlement', fmt(d.settlement_amount));
+    set('r_agr_date',   d.agreement_date);
+    set('r_exp_date',   d.expiry_date);
+    set('r_as_of',      d.as_of_date);
+    set('r_loan_amt',   fmt(d.loan_amount));
+    set('r_tenure',     d.tenure + ' months');
+    set('r_emi',        fmt(d.due_amount));
+    set('r_int_amt',    fmt(d.interest_amount));
+    set('r_prin_mo',    fmt(d.principal_per_month));
+    set('r_int_mo',     fmt(d.interest_per_month));
+    set('r_paid_mo',    d.paid_months);
+    set('r_bal_due',    fmt(d.balance_due));
+    set('r_comp_mo',    d.completed_months);
+    set('r_fut_dues',   d.future_dues);
+    set('r_adv_dues',   d.advance_dues);
+    set('r_fut_cnt',    d.future_due_count);
+    set('r_fut_total',  fmt(d.future_total_dues));
+    set('r_fut_prin',   fmt(d.future_principal));
+    set('r_od_cnt',     d.overdue_count);
+    set('r_od_amt',     fmt(d.total_overdue));
+    set('r_fc',         fmt(d.fc_charges));
+    set('r_settle_foot',fmt(d.settlement_amount));
+
+    document.getElementById('resultBox').style.display  = 'block';
+    document.getElementById('emptyState').style.display = 'none';
+  } catch(e){
+    status.innerHTML = `<span class="text-danger">Error: ${e.message}</span>`;
+  }
+}
+
+// Auto-calc if loan_id pre-filled
+{% if loan_id %}doCalc();{% endif %}
+</script>
+{% endblock %}

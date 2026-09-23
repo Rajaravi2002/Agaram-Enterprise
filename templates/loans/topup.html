@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Top-Up {{ loan.loan_id }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Top-Up Loan — {{ loan.loan_id }}</h1>
+    <p class="page-subtitle">{{ loan.customer_name }} · Add amount to existing loan, same loan number</p>
+  </div>
+  <a href="{{ url_for('loans.view', loan_id=loan.loan_id) }}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back
+  </a>
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-7">
+    <div class="card">
+      <div class="card-header-custom">
+        <h5><i class="bi bi-layers me-2 text-secondary-brand"></i>Add Amount to {{ loan.loan_id }}</h5>
+      </div>
+      <div class="card-body">
+
+        <!-- Current loan summary -->
+        <div class="row g-2 mb-4 p-3 rounded" style="background:var(--bg);border:1px solid var(--border)">
+          <div class="col-6 col-md-3 text-center">
+            <div class="text-muted" style="font-size:11px;text-transform:uppercase">Current Loan</div>
+            <div class="fw-700">₹{{ "{:,.0f}".format(loan.loan_amount) }}</div>
+          </div>
+          <div class="col-6 col-md-3 text-center">
+            <div class="text-muted" style="font-size:11px;text-transform:uppercase">Balance</div>
+            <div class="fw-700 text-danger">₹{{ "{:,.0f}".format(loan.balance_agreement) }}</div>
+          </div>
+          <div class="col-6 col-md-3 text-center">
+            <div class="text-muted" style="font-size:11px;text-transform:uppercase">Rate</div>
+            <div class="fw-700">{{ loan.interest_rate }}%/mo</div>
+          </div>
+          <div class="col-6 col-md-3 text-center">
+            <div class="text-muted" style="font-size:11px;text-transform:uppercase">Paid</div>
+            <div class="fw-700">{{ loan.paid_due }}/{{ loan.tenure }} mo</div>
+          </div>
+        </div>
+
+        <form method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Top-Up Amount (₹) *</label>
+              <div class="input-group">
+                <span class="input-group-text">₹</span>
+                <input type="number" name="topup_amount" id="topupAmt" class="form-control form-control-lg"
+                       min="100" step="1" required placeholder="e.g. 10000" oninput="calcTopup()">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Additional Doc Charge (₹)</label>
+              <div class="input-group">
+                <span class="input-group-text">₹</span>
+                <input type="number" name="topup_doc_charge" id="topupDoc" class="form-control"
+                       min="0" step="1" value="0" oninput="calcTopup()">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">New Tenure (Months) *</label>
+              <input type="number" name="new_tenure" id="newTenure" class="form-control"
+                     min="1" value="{{ loan.tenure }}" required oninput="calcTopup()">
+              <div class="mt-1 text-muted" style="font-size:11px">
+                Recalculated from remaining balance + top-up amount
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Top-Up Date</label>
+              <input type="date" name="topup_date" class="form-control" value="{{ today }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Note</label>
+              <input type="text" name="note" class="form-control"
+                     placeholder="Reason for top-up (e.g. additional working capital)">
+            </div>
+          </div>
+
+          <!-- Live preview -->
+          <div id="topupPreview" class="mt-4 p-3 rounded" style="background:rgba(27,156,133,.06);border:1px solid rgba(27,156,133,.2);display:none">
+            <div class="fw-700 mb-2 text-secondary-brand">After Top-Up Preview</div>
+            <div class="row g-2 text-center">
+              <div class="col-4">
+                <div class="text-muted" style="font-size:11px">New Loan Total</div>
+                <div class="fw-700" id="prev_loan">—</div>
+              </div>
+              <div class="col-4">
+                <div class="text-muted" style="font-size:11px">New Agreement</div>
+                <div class="fw-700 text-primary-brand" id="prev_agr">—</div>
+              </div>
+              <div class="col-4">
+                <div class="text-muted" style="font-size:11px">New Due/Month</div>
+                <div class="fw-700 text-secondary-brand" style="font-size:18px" id="prev_due">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 justify-content-end mt-4 pt-3 border-top">
+            <a href="{{ url_for('loans.view', loan_id=loan.loan_id) }}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-success px-5">
+              <i class="bi bi-layers me-2"></i>Apply Top-Up to {{ loan.loan_id }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info panel -->
+  <div class="col-xl-5">
+    <div class="card mb-3" style="border-left:4px solid var(--secondary)">
+      <div class="card-body">
+        <h6 class="fw-700 mb-3"><i class="bi bi-info-circle me-2 text-secondary-brand"></i>How Top-Up Works</h6>
+        <div class="d-flex flex-column gap-2" style="font-size:13px">
+          <div class="p-2 rounded" style="background:rgba(15,76,129,.06)">
+            <strong>Same Loan Number:</strong> {{ loan.loan_id }} stays the same
+          </div>
+          <div class="p-2 rounded" style="background:rgba(15,76,129,.06)">
+            <strong>Same Interest Rate:</strong> {{ loan.interest_rate }}% per month applied to new principle
+          </div>
+          <div class="p-2 rounded" style="background:rgba(27,156,133,.06)">
+            <strong>Example:</strong><br>
+            Current balance: ₹{{ "{:,.0f}".format(loan.balance_agreement) }}<br>
+            Top-up: + ₹10,000<br>
+            New balance: ₹{{ "{:,.0f}".format(loan.balance_agreement + 10000) }}<br>
+            Repaid over new tenure
+          </div>
+          <div class="p-2 rounded" style="background:rgba(246,166,35,.08)">
+            <strong>Top-up history</strong> is recorded and visible on the loan page.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header-custom"><h5>Need a separate loan instead?</h5></div>
+      <div class="card-body">
+        <p class="text-muted mb-3" style="font-size:13px">
+          If the customer wants a <strong>different interest rate</strong> or completely separate terms,
+          create a new loan instead of topping up.
+        </p>
+        <a href="{{ url_for('loans.create') }}?customer_name={{ loan.customer_name|urlencode }}"
+           class="btn btn-outline-primary w-100">
+          <i class="bi bi-file-earmark-plus me-2"></i>Create New Separate Loan for {{ loan.customer_name }}
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const OLD_BALANCE = {{ loan.balance_agreement }};
+const OLD_LOAN    = {{ loan.loan_amount }};
+const RATE        = {{ loan.interest_rate or 0 }};
+
+function fmt(n){ return '₹' + parseFloat(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function calcTopup(){
+  const topup   = parseFloat(document.getElementById('topupAmt').value)   || 0;
+  const doc     = parseFloat(document.getElementById('topupDoc').value)    || 0;
+  const tenure  = parseInt(document.getElementById('newTenure').value)     || 0;
+  if(!topup || !tenure){ document.getElementById('topupPreview').style.display='none'; return; }
+
+  const newLoan = OLD_LOAN + topup;
+  const newDocTotal = {{ loan.document_charge }} + doc;
+  const newPrinciple = newLoan - newDocTotal;
+  const newInt = Math.round(newPrinciple * (RATE/100) * tenure * 100) / 100;
+  const newAgr = Math.round((newPrinciple + newInt)*100)/100;
+  const newDue = tenure ? Math.round(newAgr/tenure*100)/100 : 0;
+
+  document.getElementById('prev_loan').textContent = fmt(newLoan);
+  document.getElementById('prev_agr').textContent  = fmt(newAgr);
+  document.getElementById('prev_due').textContent  = fmt(newDue);
+  document.getElementById('topupPreview').style.display = 'block';
+}
+</script>
+{% endblock %}

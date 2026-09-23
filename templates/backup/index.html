@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Backup & Import{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-title">Backup & Import</h1><p class="page-subtitle">Manage backups and import data from Excel</p></div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{{ url_for('backup.download_excel') }}" class="btn btn-success">
+      <i class="bi bi-file-earmark-excel me-2"></i>Download Excel Now
+    </a>
+    {% if current_user.is_admin %}
+    <a href="{{ url_for('backup.import_excel') }}" class="btn btn-outline-primary">
+      <i class="bi bi-file-earmark-arrow-up me-2"></i>Import Excel
+    </a>
+    <form method="POST" action="{{ url_for('backup.create') }}" class="d-inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-primary" data-confirm="Create a full backup now?">
+        <i class="bi bi-cloud-upload me-2"></i>Create Backup
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Auto-backup status banner -->
+<div class="card mb-3" style="border-left:4px solid #10b981;background:#ecfdf5">
+  <div class="card-body py-3">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <i class="bi bi-shield-fill-check text-success" style="font-size:28px"></i>
+      <div class="flex-grow-1">
+        <div class="fw-600" style="color:#065f46">Automatic Daily Backup is Active</div>
+        <div class="text-muted" style="font-size:13px">
+          The system creates a full backup (JSON + Excel inside a ZIP) every
+          <strong>{{ auto_interval_hours }} hour(s)</strong> and keeps the last
+          <strong>{{ auto_keep_last }}</strong> copies. Files are stored locally in the
+          <code>backups/</code> folder — nothing is uploaded to the internet.
+        </div>
+      </div>
+      {% if last_auto %}
+      <div class="text-end">
+        <div class="text-muted" style="font-size:11px;text-transform:uppercase">Last Auto Backup</div>
+        <div class="fw-700" style="color:#065f46">{{ last_auto.created_at_str }}</div>
+        <div class="text-muted" style="font-size:11px">{{ last_auto.file_name }}</div>
+      </div>
+      {% else %}
+      <div class="text-end">
+        <div class="text-muted" style="font-size:11px;text-transform:uppercase">Status</div>
+        <div class="fw-700 text-warning">Waiting for first run…</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Info strip -->
+<div class="card mb-4" style="border-left:4px solid var(--primary)">
+  <div class="card-body py-3">
+    <div class="row g-3 align-items-center">
+      <div class="col-md-4 d-flex align-items-center gap-3">
+        <i class="bi bi-file-earmark-excel-fill text-success" style="font-size:28px"></i>
+        <div>
+          <div class="fw-600">Excel Backup</div>
+          <div class="text-muted" style="font-size:12px">Matches company register format exactly (AGM0001 …)</div>
+        </div>
+      </div>
+      <div class="col-md-4 d-flex align-items-center gap-3">
+        <i class="bi bi-file-zip-fill text-primary" style="font-size:28px"></i>
+        <div>
+          <div class="fw-600">Full Backup ZIP</div>
+          <div class="text-muted" style="font-size:12px">Contains JSON + Excel inside one ZIP archive</div>
+        </div>
+      </div>
+      <div class="col-md-4 d-flex align-items-center gap-3">
+        <i class="bi bi-file-earmark-arrow-up-fill text-warning" style="font-size:28px"></i>
+        <div>
+          <div class="fw-600">Import Excel</div>
+          <div class="text-muted" style="font-size:12px">Upload company sheet → loans inserted / updated</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Excel download card -->
+<div class="card mb-4">
+  <div class="card-header-custom">
+    <h5><i class="bi bi-file-earmark-excel me-2 text-success"></i>Quick Excel Export</h5>
+  </div>
+  <div class="card-body">
+    <div class="row g-3 align-items-center">
+      <div class="col-md-8">
+        <p class="mb-1 fw-600">Download all loans as Excel (company register format)</p>
+        <p class="text-muted mb-0" style="font-size:13px">
+          Exports every loan with all columns — Loan No, Name, Mobile, Vehicle, Document Status,
+          Agreement, Balance, Int %, Penalty — styled with headers and totals row.
+        </p>
+      </div>
+      <div class="col-md-4 text-md-end">
+        <a href="{{ url_for('backup.download_excel') }}" class="btn btn-success">
+          <i class="bi bi-download me-2"></i>Download Excel
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Backup history -->
+<div class="card">
+  <div class="card-header-custom">
+    <h5><i class="bi bi-clock-history me-2 text-primary-brand"></i>Backup History ({{ backups|length }})</h5>
+  </div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Backup ID</th><th>Type</th><th>Filename</th>
+          <th>Size</th><th>Created</th><th>By</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in backups %}
+        <tr>
+          <td class="font-mono fw-600" style="font-size:12px">{{ b.backup_id }}</td>
+          <td>
+            <span class="badge {% if b.backup_type == 'auto' %}bg-secondary{% else %}bg-primary{% endif %}">
+              {{ b.backup_type|title }}
+            </span>
+          </td>
+          <td class="font-mono" style="font-size:12px">{{ b.file_name }}</td>
+          <td class="text-muted">{{ b.size_kb }} KB</td>
+          <td>{{ b.created_at_str }}</td>
+          <td class="text-muted">{{ b.created_by }}</td>
+          <td>
+            {% if b.file_exists %}
+            <span class="badge-status active"><i class="bi bi-circle-fill" style="font-size:7px"></i> Available</span>
+            {% else %}
+            <span class="badge-status overdue"><i class="bi bi-circle-fill" style="font-size:7px"></i> Missing</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="d-flex gap-1 flex-wrap">
+              {% if b.file_exists %}
+              <!-- Download full ZIP -->
+              <a href="{{ url_for('backup.download', backup_id=b.backup_id) }}"
+                 class="btn btn-sm btn-outline-primary btn-icon" title="Download ZIP">
+                <i class="bi bi-file-zip"></i>
+              </a>
+              <!-- Download Excel from ZIP -->
+              <a href="{{ url_for('backup.download_excel_from_backup', backup_id=b.backup_id) }}"
+                 class="btn btn-sm btn-outline-success btn-icon" title="Download Excel from this backup">
+                <i class="bi bi-file-earmark-excel"></i>
+              </a>
+              {% if current_user.is_admin %}
+              <form method="POST" action="{{ url_for('backup.restore', backup_id=b.backup_id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-warning btn-icon" title="Restore"
+                        data-confirm="⚠️ WARNING: Restoring will overwrite all current data. Are you sure?">
+                  <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
+              </form>
+              {% endif %}
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8">
+            <div class="empty-state">
+              <i class="bi bi-cloud-upload"></i>
+              <h6>No backups yet</h6>
+              <p class="text-muted mb-3">Create your first backup to protect your data.</p>
+              {% if current_user.is_admin %}
+              <form method="POST" action="{{ url_for('backup.create') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-primary">Create First Backup</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="mt-3" style="font-size:12px;color:var(--text-secondary)">
+  <i class="bi bi-file-zip me-1"></i> ZIP = full backup (JSON+Excel) &nbsp;|&nbsp;
+  <i class="bi bi-file-earmark-excel me-1"></i> Excel = loans sheet only &nbsp;|&nbsp;
+  <i class="bi bi-arrow-counterclockwise me-1"></i> Restore = overwrites all data from JSON snapshot
+</div>
+
+{% endblock %}

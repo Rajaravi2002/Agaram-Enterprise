@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Import Excel{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-title">Import from Excel</h1><p class="page-subtitle">Upload your company Excel sheet to import loan records</p></div>
+  <a href="{{ url_for('backup.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-xl-7">
+
+    <!-- Upload card -->
+    <div class="card mb-4">
+      <div class="card-header-custom">
+        <h5><i class="bi bi-file-earmark-arrow-up me-2 text-primary-brand"></i>Upload Company Excel Sheet</h5>
+      </div>
+      <div class="card-body">
+        <form method="POST" enctype="multipart/form-data" id="importForm">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <!-- Drop zone -->
+          <div id="dropZone" class="mb-3"
+               style="border:2px dashed var(--border);border-radius:var(--radius);
+                      padding:48px 24px;text-align:center;cursor:pointer;transition:all .2s;
+                      background:var(--bg)"
+               onclick="document.getElementById('excelFile').click()"
+               ondragover="ev.preventDefault();this.style.borderColor='var(--primary)';this.style.background='rgba(15,76,129,.04)'"
+               ondrop="handleDrop(event)">
+            <i class="bi bi-file-earmark-excel" style="font-size:48px;color:var(--success);display:block;margin-bottom:12px"></i>
+            <div style="font-size:16px;font-weight:600;color:var(--text-primary)">Drop your .xlsx file here</div>
+            <div class="text-muted mt-1" style="font-size:13px">or click to browse</div>
+            <div id="fileNameDisplay" class="mt-3" style="font-size:13px;color:var(--primary);font-weight:600"></div>
+          </div>
+
+          <input type="file" id="excelFile" name="excel_file" accept=".xlsx" class="d-none" onchange="showFileName(this)">
+
+          <div class="d-flex gap-2 justify-content-end">
+            <a href="{{ url_for('backup.index') }}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary px-4" id="importBtn" disabled>
+              <i class="bi bi-upload me-2"></i>Import & Process
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="card mb-4">
+      <div class="card-header-custom"><h5><i class="bi bi-info-circle me-2 text-primary-brand"></i>How Import Works</h5></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="p-3 rounded" style="background:rgba(27,156,133,.06);border:1px solid rgba(27,156,133,.15)">
+              <div class="fw-600 mb-1 text-secondary-brand"><i class="bi bi-check-circle me-1"></i>What happens</div>
+              <ul class="mb-0 ps-3" style="font-size:13px">
+                <li>Each row is read and matched by <strong>Loan No</strong></li>
+                <li>New loan nos → <strong>inserted</strong></li>
+                <li>Existing loan nos → <strong>updated</strong> with latest values</li>
+                <li>Customer names auto-created if they don't exist</li>
+                <li>Formulas in Excel are evaluated (data_only mode)</li>
+              </ul>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="p-3 rounded" style="background:rgba(15,76,129,.06);border:1px solid rgba(15,76,129,.15)">
+              <div class="fw-600 mb-1 text-primary-brand"><i class="bi bi-table me-1"></i>Expected columns</div>
+              <div style="font-size:12px;font-family:monospace;line-height:1.8">
+                A: Sl.No &nbsp; B: Loan No &nbsp; C: Loan Date<br>
+                D: Name &nbsp; E: Mobile &nbsp; F: Ref<br>
+                G: Due Date &nbsp; H: Follower<br>
+                I: Loan Amt &nbsp; J: Doc Charge<br>
+                K: Principle &nbsp; L: Interest<br>
+                M: Agreement &nbsp; N: Tenure<br>
+                O: Due Amt &nbsp; P: Paid Due<br>
+                Q: Paid Amt &nbsp; R: Feature Dues<br>
+                S: Balance &nbsp; T: Int % &nbsp; U: Vehicle Model<br>
+                V: Vehicle No &nbsp; W: Doc Status &nbsp; X: Remarks
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="alert alert-warning mb-0 py-2" style="font-size:13px">
+              <i class="bi bi-exclamation-triangle me-1"></i>
+              <strong>Note:</strong> This import does <em>not</em> delete existing records. It only inserts new rows and updates existing ones by Loan No. Payments history is not affected.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expected format sample -->
+    <div class="card">
+      <div class="card-header-custom"><h5><i class="bi bi-table me-2 text-primary-brand"></i>Expected Format (Sample)</h5></div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0" style="font-size:12px">
+          <thead>
+            <tr>
+              <th>Sl.No</th><th>Loan No</th><th>Loan Date</th><th>Name</th><th>Mobile</th>
+              <th>Loan Amt</th><th>Doc Charge</th><th>Agreement</th><th>Due Amt</th>
+              <th>Vehicle No</th><th>Doc Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td><td class="font-mono">AGM0001</td><td>25-01-2022</td>
+              <td>Madhan Kumar P</td><td>7603816380</td>
+              <td>25000</td><td>2500</td><td>31800</td><td>2650</td>
+              <td class="font-mono">TN95B9425</td><td>Collected</td>
+            </tr>
+            <tr>
+              <td>2</td><td class="font-mono">AGM0002</td><td>10-02-2022</td>
+              <td>Mareeshwaran M</td><td>7548887291</td>
+              <td>33500</td><td>3350</td><td>42600</td><td>3550</td>
+              <td class="font-mono">TN67BJ8538</td><td>Collected</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showFileName(input){
+  const f = input.files[0];
+  if(f){
+    document.getElementById('fileNameDisplay').textContent = '📄 ' + f.name + ' (' + (f.size/1024).toFixed(1) + ' KB)';
+    document.getElementById('importBtn').disabled = false;
+    document.getElementById('dropZone').style.borderColor = 'var(--secondary)';
+    document.getElementById('dropZone').style.background = 'rgba(27,156,133,.04)';
+  }
+}
+function handleDrop(ev){
+  ev.preventDefault();
+  const dt = ev.dataTransfer;
+  if(dt.files.length){
+    document.getElementById('excelFile').files = dt.files;
+    showFileName(document.getElementById('excelFile'));
+  }
+  ev.currentTarget.style.borderColor = 'var(--border)';
+  ev.currentTarget.style.background = 'var(--bg)';
+}
+document.getElementById('importForm').addEventListener('submit', function(){
+  const btn = document.getElementById('importBtn');
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Importing…';
+  btn.disabled = true;
+});
+</script>
+{% endblock %}

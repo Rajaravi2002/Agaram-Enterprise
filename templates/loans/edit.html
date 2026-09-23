@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ loan.loan_id }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-title">Edit Loan — {{ loan.loan_id }}</h1><p class="page-subtitle">{{ loan.customer_name }}</p></div>
+  <a href="{{ url_for('loans.view', loan_id=loan.loan_id) }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+<form method="POST">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="row g-3">
+  <div class="col-xl-8">
+    <div class="card mb-3">
+      <div class="card-header-custom"><h5>Customer & Dates</h5></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label">Customer Name</label>
+            <input type="text" name="customer_name" class="form-control" value="{{ loan.customer_name }}" required></div>
+          <div class="col-md-6"><label class="form-label">Mobile Number</label>
+            <input type="text" name="phone" class="form-control" value="{{ loan.phone }}"></div>
+          <div class="col-md-3"><label class="form-label">Ref</label>
+            <input type="text" name="ref" class="form-control" value="{{ loan.ref }}"></div>
+          <div class="col-md-3"><label class="form-label">Follower</label>
+            <input type="text" name="follower" class="form-control" value="{{ loan.follower }}"></div>
+          <div class="col-md-3"><label class="form-label">Loan Date</label>
+            <input type="date" name="loan_date" class="form-control" value="{{ loan.loan_date }}"></div>
+          <div class="col-md-3"><label class="form-label">Due Day</label>
+            <input type="text" name="due_day" class="form-control" value="{{ loan.due_day }}"></div>
+        </div>
+
+        <!-- Guarantor Toggle -->
+        <div class="guarantor-toggle-row mt-3">
+          <div class="guarantor-toggle-label">
+            <i class="bi bi-shield-check"></i>
+            <div>
+              <div class="fw-600">Add Guarantor / Surety</div>
+              <div class="text-muted" style="font-size:12px">Enable if a third party is providing surety for this loan</div>
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" name="guarantor_enabled" id="guarantorEnabled" value="1"
+                   {% if loan.guarantor_enabled %}checked{% endif %} onchange="toggleGuarantor()">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div id="guarantorSection" class="guarantor-section" style="display:{% if loan.guarantor_enabled %}block{% else %}none{% endif %}">
+          <div class="guarantor-header">
+            <i class="bi bi-shield-fill-check me-2"></i>
+            <span>Guarantor Details</span>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Guarantor Name <span class="text-danger">*</span></label>
+              <input type="text" name="guarantor_name" id="guarantorName" class="form-control"
+                     value="{{ loan.guarantor_name or '' }}" placeholder="Full name of guarantor">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Guarantor Mobile Number <span class="text-danger">*</span></label>
+              <input type="text" name="guarantor_phone" id="guarantorPhone" class="form-control"
+                     value="{{ loan.guarantor_phone or '' }}" placeholder="Phone number" maxlength="15">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Guarantor Address <span class="text-danger">*</span></label>
+              <textarea name="guarantor_address" id="guarantorAddress" class="form-control" rows="2"
+                        placeholder="Complete address of guarantor">{{ loan.guarantor_address or '' }}</textarea>
+            </div>
+            <div class="col-12">
+              <div class="guarantor-surety-note" id="suretyPreview">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                <span id="suretyText">Guarantor gives the surety to the customer.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header-custom"><h5>Financials</h5></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4"><label class="form-label">Loan Amount</label>
+            <input type="number" name="loan_amount" class="form-control" value="{{ loan.loan_amount }}" step="0.01" oninput="calc()"></div>
+          <div class="col-md-4"><label class="form-label">Document Charge</label>
+            <input type="number" name="document_charge" id="doc" class="form-control" value="{{ loan.document_charge }}" step="0.01" oninput="calc()"></div>
+          <div class="col-md-4"><label class="form-label">Principle Amount</label>
+            <input type="number" name="principle_amount" id="prin" class="form-control" value="{{ loan.principle_amount }}" step="0.01" readonly></div>
+          <div class="col-md-4"><label class="form-label">Interest Rate (% / month)</label>
+            <div class="input-group">
+              <input type="number" name="interest_rate" id="irate" class="form-control"
+                     value="{{ loan.interest_rate or '' }}" min="0" step="0.01"
+                     placeholder="e.g. 2.25" oninput="calcFromRate()">
+              <span class="input-group-text">%/mo</span>
+            </div></div>
+          <div class="col-md-4"><label class="form-label">Interest Amount (₹) <small class="text-muted">(auto or override)</small></label>
+            <input type="number" name="interest_amount" id="intamt" class="form-control" value="{{ loan.interest_amount }}" step="0.01" oninput="calc()"></div>
+          <div class="col-md-4"><label class="form-label">Agreement Value</label>
+            <input type="number" name="agreement_value" id="agr" class="form-control" value="{{ loan.agreement_value }}" step="0.01" readonly></div>
+          <div class="col-md-4"><label class="form-label">Tenure (Months)</label>
+            <input type="number" name="tenure" id="ten" class="form-control" value="{{ loan.tenure }}" oninput="calc()"></div>
+          <div class="col-md-4"><label class="form-label">Due Amount / Month</label>
+            <input type="number" name="due_amount" id="due" class="form-control" value="{{ loan.due_amount }}" step="0.01"></div>
+          <div class="col-md-4"><label class="form-label">Interest %</label>
+            <input type="text" name="int_pct" class="form-control" value="{{ loan.int_pct }}"></div>
+          <div class="col-md-4"><label class="form-label">Paid Due (Months)</label>
+            <input type="number" name="paid_due" class="form-control" value="{{ loan.paid_due }}"></div>
+          <div class="col-md-4"><label class="form-label">Paid Amount</label>
+            <input type="number" name="paid_amount" class="form-control" value="{{ loan.paid_amount }}" step="0.01"></div>
+          <div class="col-md-4"><label class="form-label">Feature Dues</label>
+            <input type="number" name="feature_dues" class="form-control" value="{{ loan.feature_dues }}"></div>
+          <div class="col-md-4"><label class="form-label">Balance Agreement</label>
+            <input type="number" name="balance_agreement" class="form-control" value="{{ loan.balance_agreement }}" step="0.01"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header-custom"><h5>Vehicle & Document</h5></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-5"><label class="form-label">Vehicle Model</label>
+            <input type="text" name="vehicle_model" class="form-control" value="{{ loan.vehicle_model }}"></div>
+          <div class="col-md-3"><label class="form-label">Vehicle Number</label>
+            <input type="text" name="vehicle_number" class="form-control" value="{{ loan.vehicle_number }}"></div>
+          <div class="col-md-4"><label class="form-label">Document Status</label>
+            <select name="document_status" class="form-select">
+              <option value="">-- Select --</option>
+              {% for opt in ['Collected','Yet to be received from IBL','book only Received','NOC Pending','ORC Pending','ORC NOC Pending','Photo Pending','RC Pending','Invoice','Received'] %}
+              <option value="{{ opt }}" {% if loan.document_status==opt %}selected{% endif %}>{{ opt }}</option>
+              {% endfor %}
+            </select></div>
+          <div class="col-md-6"><label class="form-label">Father Name</label>
+            <input type="text" name="father_name" class="form-control" value="{{ loan.father_name }}"></div>
+          <div class="col-md-6"><label class="form-label">Vehicle Cost (₹)</label>
+            <input type="number" name="vehicle_cost" class="form-control" value="{{ loan.vehicle_cost }}" min="0" step="1"></div>
+          <div class="col-md-4"><label class="form-label">Address Line 1</label>
+            <input type="text" name="address1" class="form-control" value="{{ loan.address1 }}"></div>
+          <div class="col-md-4"><label class="form-label">Address Line 2</label>
+            <input type="text" name="address2" class="form-control" value="{{ loan.address2 }}"></div>
+          <div class="col-md-2"><label class="form-label">Address Line 3</label>
+            <input type="text" name="address3" class="form-control" value="{{ loan.address3 }}"></div>
+          <div class="col-md-2"><label class="form-label">Pincode</label>
+            <input type="text" name="pincode" class="form-control" value="{{ loan.pincode }}" maxlength="6"></div>
+          <div class="col-12"><label class="form-label">Remarks</label>
+            <textarea name="remarks" class="form-control" rows="2">{{ loan.remarks }}</textarea></div>
+        </div>
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header-custom"><h5><i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>Penalty</h5></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4"><label class="form-label">Penalty Amount (₹)</label>
+            <input type="number" name="penalty_amount" class="form-control" value="{{ loan.penalty_amount }}" step="0.01"></div>
+          <div class="col-md-8"><label class="form-label">Penalty Description</label>
+            <input type="text" name="penalty_description" class="form-control" value="{{ loan.penalty_description }}"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card" style="position:sticky;top:80px">
+      <div class="card-body">
+        <div class="text-center mb-2"><div class="text-muted" style="font-size:11px;text-transform:uppercase">Monthly Due</div>
+        <div id="dueDisplay" style="font-size:30px;font-weight:800;color:var(--secondary)">₹{{ "{:,.2f}".format(loan.due_amount) }}</div></div>
+        <table class="table table-sm mb-0" style="font-size:13px">
+          <tr><td class="text-muted">Status</td><td><span class="badge-status {{ loan.loan_status }}">{{ loan.loan_status|title }}</span></td></tr>
+          <tr><td class="text-muted">Agreement</td><td class="fw-700">₹{{ "{:,.2f}".format(loan.agreement_value) }}</td></tr>
+          <tr><td class="text-muted">Balance</td><td class="fw-700 text-danger">₹{{ "{:,.2f}".format(loan.balance_agreement) }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="d-flex justify-content-end gap-2 mt-3">
+  <a href="{{ url_for('loans.view', loan_id=loan.loan_id) }}" class="btn btn-outline-secondary">Cancel</a>
+  <button type="submit" class="btn btn-primary px-5"><i class="bi bi-check-lg me-2"></i>Save Changes</button>
+</div>
+</form>
+{% endblock %}
+{% block extra_js %}
+<script>
+function calcFromRate(){
+  const loan = parseFloat(document.querySelector('[name=loan_amount]').value)||0;
+  const doc  = parseFloat(document.getElementById('doc').value)||0;
+  const rate = parseFloat(document.getElementById('irate').value)||0;
+  const ten  = parseInt(document.getElementById('ten').value)||1;
+  const prin = loan-doc;
+  const int_ = Math.round(prin*(rate/100)*ten*100)/100;
+  document.getElementById('intamt').value = int_.toFixed(2);
+  calc();
+}
+function calc(){
+  const loan=parseFloat(document.querySelector('[name=loan_amount]').value)||0;
+  const doc=parseFloat(document.getElementById('doc').value)||0;
+  const int_=parseFloat(document.getElementById('intamt').value)||0;
+  const ten=parseInt(document.getElementById('ten').value)||1;
+  const prin=loan-doc, agr=prin+int_, due=ten?Math.round(agr/ten*100)/100:0;
+  document.getElementById('prin').value=prin.toFixed(2);
+  document.getElementById('agr').value=agr.toFixed(2);
+  document.getElementById('due').value=due.toFixed(2);
+  document.getElementById('dueDisplay').textContent='₹'+due.toLocaleString('en-IN',{minimumFractionDigits:2});
+}
+function toggleGuarantor(){
+  const cb  = document.getElementById('guarantorEnabled');
+  const sec = document.getElementById('guarantorSection');
+  const name  = document.getElementById('guarantorName');
+  const phone = document.getElementById('guarantorPhone');
+  const addr  = document.getElementById('guarantorAddress');
+  if(cb.checked){
+    sec.style.display = 'block';
+    name.required = true; phone.required = true; addr.required = true;
+    updateSuretyPreview();
+  } else {
+    sec.style.display = 'none';
+    name.required = false; phone.required = false; addr.required = false;
+  }
+}
+function updateSuretyPreview(){
+  const gName = (document.getElementById('guarantorName').value || '').trim();
+  const cName = (document.querySelector('[name=customer_name]').value || '').trim();
+  const el = document.getElementById('suretyText');
+  if(gName && cName){
+    el.innerHTML = '<strong>' + escapeHtml(gName) + '</strong> gives the surety to the customer <strong>' + escapeHtml(cName) + '</strong>.';
+  } else if(gName){
+    el.innerHTML = '<strong>' + escapeHtml(gName) + '</strong> gives the surety to the customer.';
+  } else {
+    el.textContent = 'Guarantor gives the surety to the customer.';
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const gn = document.getElementById('guarantorName');
+  const cn = document.querySelector('[name=customer_name]');
+  if(gn) gn.addEventListener('input', updateSuretyPreview);
+  if(cn) cn.addEventListener('input', updateSuretyPreview);
+  if(document.getElementById('guarantorEnabled').checked) updateSuretyPreview();
+});
+</script>
+{% endblock %}

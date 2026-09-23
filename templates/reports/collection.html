@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Collection Report{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title"><i class="bi bi-cash-stack me-2 text-primary-brand"></i>Collection Report</h1>
+    <p class="page-subtitle">
+      {{ start.strftime('%d %b %Y') }} — {{ end.strftime('%d %b %Y') }}
+      <span class="badge bg-primary ms-2">{{ period|title }}</span>
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-success" href="{{ url_for('reports.export_excel_payments', start=start.strftime('%Y-%m-%d'), end=end.strftime('%Y-%m-%d')) }}">
+      <i class="bi bi-file-earmark-excel me-1"></i>Excel
+    </a>
+    <a class="btn btn-outline-danger" href="{{ url_for('reports.export_pdf', report_type='collection') }}">
+      <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+    </a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('reports.index') }}">
+      <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <form method="GET" class="row g-2 align-items-center">
+      <div class="col-auto">
+        <div class="btn-group" role="group">
+          <a class="btn btn-sm {% if period == 'today' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?period=today">Today</a>
+          <a class="btn btn-sm {% if period == 'week' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?period=week">Week</a>
+          <a class="btn btn-sm {% if period == 'month' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?period=month">Month</a>
+        </div>
+      </div>
+      <div class="col-auto"><label class="form-label mb-0">Custom:</label></div>
+      <input type="hidden" name="period" value="custom">
+      <div class="col-auto">
+        <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start_str or start.strftime('%Y-%m-%d') }}">
+      </div>
+      <div class="col-auto">
+        <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end_str or end.strftime('%Y-%m-%d') }}">
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-sm btn-primary">Apply</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="stat-card success">
+      <div class="stat-icon success"><i class="bi bi-check-circle-fill"></i></div>
+      <div class="stat-value" style="font-size:22px">₹{{ "{:,.2f}".format(total_collected) }}</div>
+      <div class="stat-label">Total Collected</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card warning">
+      <div class="stat-icon warning"><i class="bi bi-hourglass-split"></i></div>
+      <div class="stat-value" style="font-size:22px">₹{{ "{:,.2f}".format(total_pending) }}</div>
+      <div class="stat-label">Total Pending in Range</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card primary">
+      <div class="stat-icon primary"><i class="bi bi-receipt-cutoff"></i></div>
+      <div class="stat-value" style="font-size:22px">{{ payments|length }}</div>
+      <div class="stat-label">Payments Recorded</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Payment ID</th>
+          <th>Loan ID</th>
+          <th>Customer</th>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Mode</th>
+          <th class="text-end">EMI</th>
+          <th class="text-end">Paid</th>
+          <th class="text-end">Pending</th>
+          <th class="text-end">Penalty</th>
+          <th>Collected By</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in payments %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td><a href="{{ url_for('payments.receipt', payment_id=p.payment_id) }}"
+                 class="font-mono text-primary fw-600" style="font-size:12px">{{ p.payment_id }}</a></td>
+          <td><a href="{{ url_for('loans.view', loan_id=p.loan_id) }}"
+                 class="font-mono text-secondary-brand" style="font-size:12px">{{ p.loan_id }}</a></td>
+          <td class="fw-600">{{ p.customer_name }}</td>
+          <td>{{ p.collection_date_str }}</td>
+          <td><span class="badge-status {{ (p.payment_type or 'EMI')|lower }}">{{ (p.payment_type or 'EMI')|title }}</span></td>
+          <td>{{ p.payment_mode or 'Cash' }}</td>
+          <td class="text-end">₹{{ "{:,.0f}".format(p.emi_amount or 0) }}</td>
+          <td class="text-end text-success fw-700">₹{{ "{:,.0f}".format(p.paid_amount or 0) }}</td>
+          <td class="text-end {% if p.pending_amount > 0 %}text-danger fw-700{% else %}text-muted{% endif %}">
+            ₹{{ "{:,.0f}".format(p.pending_amount or 0) }}
+          </td>
+          <td class="text-end {% if p.penalty_amount %}text-warning fw-600{% else %}text-muted{% endif %}">
+            ₹{{ "{:,.0f}".format(p.penalty_amount or 0) }}
+          </td>
+          <td>{{ p.collected_by }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="12">
+            <div class="empty-state">
+              <i class="bi bi-inbox"></i>
+              <h6>No payments in this date range</h6>
+              <p class="text-muted small">Try adjusting the date range or period.</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if payments %}
+      <tfoot>
+        <tr class="table-active">
+          <th colspan="8" class="text-end">Totals:</th>
+          <th class="text-end text-success">₹{{ "{:,.2f}".format(total_collected) }}</th>
+          <th class="text-end text-danger">₹{{ "{:,.2f}".format(total_pending) }}</th>
+          <th colspan="2"></th>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+{% endblock %}

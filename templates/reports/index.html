@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title"><i class="bi bi-bar-chart-fill me-2 text-primary-brand"></i>Reports Center</h1>
+    <p class="page-subtitle">Generate collection, loan, and pending reports — export to Excel or PDF</p>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="report-card">
+      <div class="report-icon primary"><i class="bi bi-cash-stack"></i></div>
+      <h5>Collection Report</h5>
+      <p class="text-muted small">EMI payments received during a selected date range.</p>
+      <div class="d-grid gap-2">
+        <a class="btn btn-primary btn-sm" href="{{ url_for('reports.collection_report', period='today') }}">Today</a>
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('reports.collection_report', period='week') }}">This Week</a>
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('reports.collection_report', period='month') }}">This Month</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="report-card">
+      <div class="report-icon secondary"><i class="bi bi-file-earmark-text"></i></div>
+      <h5>Loan Report</h5>
+      <p class="text-muted small">All loans grouped by status — active, closed, or overdue.</p>
+      <div class="d-grid gap-2">
+        <a class="btn btn-primary btn-sm" href="{{ url_for('reports.loan_report') }}">All Loans</a>
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('reports.loan_report', status='active') }}">Active</a>
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('reports.loan_report', status='overdue') }}">Overdue</a>
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('reports.loan_report', status='closed') }}">Closed</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="report-card">
+      <div class="report-icon warning"><i class="bi bi-hourglass-split"></i></div>
+      <h5>Pending Dues Report</h5>
+      <p class="text-muted small">Latest pending balance per loan (carry forward).</p>
+      <div class="d-grid gap-2">
+        <a class="btn btn-primary btn-sm" href="{{ url_for('reports.pending_report') }}">View Report</a>
+        <a class="btn btn-outline-success btn-sm" href="{{ url_for('reports.export_excel_pending') }}">
+          <i class="bi bi-file-earmark-excel"></i> Excel
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header-custom">
+    <h5><i class="bi bi-calendar-range me-2 text-primary-brand"></i>Custom Date Range Collection Report</h5>
+  </div>
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('reports.collection_report') }}" class="row g-3 align-items-end">
+      <input type="hidden" name="period" value="custom">
+      <div class="col-md-4">
+        <label class="form-label">Start Date</label>
+        <input type="date" name="start_date" class="form-control" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">End Date</label>
+        <input type="date" name="end_date" class="form-control" required>
+      </div>
+      <div class="col-md-4">
+        <button class="btn btn-primary w-100"><i class="bi bi-search me-1"></i>Generate Report</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header-custom"><h5><i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel Exports</h5></div>
+      <div class="card-body d-grid gap-2">
+        <a class="btn btn-outline-success" href="{{ url_for('reports.export_excel_loans') }}">
+          <i class="bi bi-file-earmark-excel me-1"></i>All Loans (.xlsx)
+        </a>
+        <a class="btn btn-outline-success" href="{{ url_for('reports.export_excel_customers') }}">
+          <i class="bi bi-file-earmark-excel me-1"></i>All Customers (.xlsx)
+        </a>
+        <a class="btn btn-outline-success" href="{{ url_for('reports.export_excel_payments') }}">
+          <i class="bi bi-file-earmark-excel me-1"></i>All Payments (.xlsx)
+        </a>
+        <a class="btn btn-outline-success" href="{{ url_for('reports.export_excel_pending') }}">
+          <i class="bi bi-file-earmark-excel me-1"></i>Pending Dues (.xlsx)
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header-custom"><h5><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF Exports</h5></div>
+      <div class="card-body d-grid gap-2">
+        <a class="btn btn-outline-danger" href="{{ url_for('reports.export_pdf', report_type='loans') }}">
+          <i class="bi bi-file-earmark-pdf me-1"></i>Loans Report (.pdf)
+        </a>
+        <a class="btn btn-outline-danger" href="{{ url_for('reports.export_pdf', report_type='collection') }}">
+          <i class="bi bi-file-earmark-pdf me-1"></i>Collection Report (.pdf)
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

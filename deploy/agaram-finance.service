@@ -1,0 +1,21 @@
+[Unit]
+Description=Agaram Finance (Gunicorn)
+After=network.target postgresql.service
+
+[Service]
+Type=notify
+User=agaram
+Group=agaram
+WorkingDirectory=/opt/agaram_finance
+EnvironmentFile=/opt/agaram_finance/.env
+ExecStart=/opt/agaram_finance/.venv/bin/gunicorn \
+    -w 3 \
+    -b 127.0.0.1:8000 \
+    --access-logfile - \
+    --error-logfile - \
+    run:app
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
