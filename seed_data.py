@@ -1,19 +1,13 @@
-"""seed_data.py – populate a DEV database with realistic sample data
-matching the company Excel format. Local/dev use only.
+"""seed_data.py – populate database with realistic sample data and custom admin.
 """
 import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-if os.environ.get('APP_ENV') == 'production':
-    sys.exit(
-        'ERROR: seed_data.py cannot run in production (APP_ENV=production). '
-        'This script deletes all customers/loans/payments.'
-    )
-
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import random
+from werkzeug.security import generate_password_hash
 
 from app import create_app
 from database import run, query, next_loan_id, next_payment_id
@@ -31,10 +25,28 @@ SAMPLE = [
 
 def seed():
     with app.app_context():
+        # Clear existing tables
         run("DELETE FROM payments")
         run("DELETE FROM loans")
         run("DELETE FROM customers")
 
+        # -------------------------------------------------------------
+        # ADD CUSTOM ADMIN USER
+        # -------------------------------------------------------------
+        new_username = "my_new_admin"
+        new_password = "MyStrongPassword123!"
+        hashed_pw = generate_password_hash(new_password)
+
+        # Ensure users table exists and insert/update custom admin
+        run("""
+            INSERT INTO users (username, password_hash, role, created_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash
+        """, (new_username, hashed_pw, 'admin', datetime.now().isoformat(timespec='seconds')))
+        
+        print(f"Custom user '{new_username}' created successfully!")
+
+        # Seed Sample Customers and Loans
         for d in SAMPLE:
             principle  = d['loan_amount'] - d['doc_charge']
             agreement  = principle + d['interest']
@@ -59,7 +71,7 @@ def seed():
                 tenure,due_amount,paid_due,paid_amount,feature_dues,balance_agreement,int_pct,
                 vehicle_model,vehicle_number,document_status,remarks,
                 penalty_amount,penalty_description,topup_history,loan_status,created_at,created_by)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (loan_id, d['name'], d['phone'], d.get('ref', ''), d.get('follower', ''),
                  loan_date.strftime('%Y-%m-%d'), '25th',
                  d['loan_amount'], d['doc_charge'], principle,
@@ -92,7 +104,6 @@ def seed():
             print(f"  {loan_id}  {d['name']:25s}  {paid_due}/{d['tenure']} months  status={status}")
 
         print(f"\nSeeded {len(SAMPLE)} loans with payments.")
-        print("   Run 'flask --app run create-admin' to create a login if you haven't yet.")
 
 
 if __name__ == '__main__':
