@@ -15,11 +15,12 @@ def create_app():
     # ── Database engine + per-request transaction ───────────────────────
     from database import init_engine, close_db
     init_engine(app)
+    # Ephemeral hosts can start with an empty SQLite file. Ensure every table
+    # exists before any request (especially /login) can query it. This is
+    # idempotent and also bootstraps the optional environment-configured admin.
+    from database import create_schema
+    create_schema(app)
     app.teardown_appcontext(close_db)
-    # NOTE: schema creation is explicit now — run `flask init-db` once
-    # during deployment (see manage.py / README). It is deliberately NOT
-    # run automatically here, so that a multi-worker Gunicorn boot doesn't
-    # race N workers against the schema at once (audit item 11).
 
     # ── Flask-Login ───────────────────────────────────────────────────────
     login_manager.init_app(app)

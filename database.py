@@ -32,8 +32,10 @@ Design goals for this stage:
     to the old max+1 behaviour, which is fine for a single-user local
     dev database but must never be used in production.
 
-5.  No default admin/staff accounts are created here anymore (audit
-    item — default credentials). See `manage.py create-admin`.
+5.  The schema is created idempotently during application startup, and an
+    optional administrator is bootstrapped from environment variables. This
+    keeps ephemeral SQLite deployments from failing before the first request
+    while avoiding hard-coded credentials.
 """
 import os
 import re
@@ -416,14 +418,51 @@ def run(sql, params=()):
     return result.rowcount
 
 
-# ── Schema creation (explicit, not run automatically at web-worker
-#    startup — see audit item 11). Invoke via `flask init-db`. ───────────
+# ── Schema creation (idempotent; invoked during app startup and also
+#    available through `flask init-db`). ──────────────────────────────────
 def create_schema(app):
+    """Create the schema and bootstrap the configured admin, if needed.
+
+    This is safe to call from every worker: ``create_all(checkfirst=True)``
+    preserves existing data, and the admin insert only happens when the
+    configured username does not exist. ``ADMIN_PASSWORD`` is never used to
+    overwrite an existing account's password.
+    """
     metadata.create_all(app.db_engine, checkfirst=True)
     if is_sqlite(app):
         with app.db_engine.begin() as conn:
             conn.execute(text('PRAGMA journal_mode=WAL'))
             conn.execute(text('PRAGMA foreign_keys=ON'))
+    _bootstrap_admin(app)
+
+
+def _bootstrap_admin(app):
+    """Create the first admin from environment variables when configured."""
+    username = os.environ.get('ADMIN_USERNAME', '').strip()
+    password = os.environ.get('ADMIN_PASSWORD', '')
+    if not username or not password:
+        return
+
+    from werkzeug.security import generate_password_hash
+
+    with app.db_engine.begin() as conn:
+        existing = conn.execute(
+            text('SELECT id FROM users WHERE username = :username'),
+            {'username': username},
+        ).fetchone()
+        if existing:
+            return
+
+        conn.execute(users.insert().values(
+            username=username,
+            password_hash=generate_password_hash(password),
+            role='admin',
+            full_name=os.environ.get('ADMIN_FULL_NAME', username).strip() or username,
+            email=os.environ.get('ADMIN_EMAIL', '').strip(),
+            is_active=True,
+            must_change_password=False,
+            created_at=datetime.now(),
+        ))
 
 
 # ── ID generators ─────────────────────────────────────────────────────────
