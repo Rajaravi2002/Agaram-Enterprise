@@ -33,8 +33,8 @@ def seed():
         # -------------------------------------------------------------
         # ADD CUSTOM ADMIN USER
         # -------------------------------------------------------------
-        new_username = "my_new_admin"
-        new_password = "MyStrongPassword123!"
+        new_username = "SureshMuthaiah"
+        new_password = "Agaram@Enterprise2018"
         hashed_pw = generate_password_hash(new_password)
 
         # Ensure users table exists and insert/update custom admin
