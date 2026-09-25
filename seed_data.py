@@ -31,13 +31,22 @@ def seed():
         run("DELETE FROM customers")
 
         # -------------------------------------------------------------
-        # ADD CUSTOM ADMIN USER
+        # CREATE USERS TABLE & ADD CUSTOM ADMIN USER
         # -------------------------------------------------------------
+        run("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'staff',
+                created_at TEXT NOT NULL
+            )
+        """)
+
         new_username = "SureshMuthaiah"
         new_password = "Agaram@Enterprise2018"
         hashed_pw = generate_password_hash(new_password)
 
-        # Ensure users table exists and insert/update custom admin
         run("""
             INSERT INTO users (username, password_hash, role, created_at)
             VALUES (?, ?, ?, ?)
@@ -46,7 +55,9 @@ def seed():
         
         print(f"Custom user '{new_username}' created successfully!")
 
-        # Seed Sample Customers and Loans
+        # -------------------------------------------------------------
+        # SEED SAMPLE CUSTOMERS AND LOANS
+        # -------------------------------------------------------------
         for d in SAMPLE:
             principle  = d['loan_amount'] - d['doc_charge']
             agreement  = principle + d['interest']
