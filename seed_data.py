@@ -25,20 +25,24 @@ SAMPLE = [
 
 def seed():
     with app.app_context():
-        # Clear existing tables
-        run("DELETE FROM payments")
-        run("DELETE FROM loans")
-        run("DELETE FROM customers")
+        # Clear existing tables if present
+        try:
+            run("DELETE FROM payments")
+            run("DELETE FROM loans")
+            run("DELETE FROM customers")
+        except Exception:
+            pass
 
         # -------------------------------------------------------------
-        # CREATE USERS TABLE & ADD CUSTOM ADMIN USER
+        # CREATE USERS TABLE (MATCHING FLASK SCHEME)
         # -------------------------------------------------------------
         run("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'staff',
+                role TEXT NOT NULL DEFAULT 'admin',
+                is_active BOOLEAN NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL
             )
         """)
@@ -48,9 +52,11 @@ def seed():
         hashed_pw = generate_password_hash(new_password)
 
         run("""
-            INSERT INTO users (username, password_hash, role, created_at)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash
+            INSERT INTO users (username, password_hash, role, is_active, created_at)
+            VALUES (?, ?, ?, 1, ?)
+            ON CONFLICT(username) DO UPDATE SET 
+                password_hash=excluded.password_hash,
+                is_active=1
         """, (new_username, hashed_pw, 'admin', datetime.now().isoformat(timespec='seconds')))
         
         print(f"Custom user '{new_username}' created successfully!")
@@ -112,7 +118,6 @@ def seed():
                      due_amount, carry, total_due, paid, pending, mo,
                      0, 'Regular payment' if not partial else 'Partial payment',
                      'seed', pay_date.isoformat(timespec='seconds')))
-            print(f"  {loan_id}  {d['name']:25s}  {paid_due}/{d['tenure']} months  status={status}")
 
         print(f"\nSeeded {len(SAMPLE)} loans with payments.")
 
