@@ -34,7 +34,7 @@ def seed():
             pass
 
         # -------------------------------------------------------------
-        # CREATE USERS TABLE (MATCHING FLASK SCHEME)
+        # CREATE USERS TABLE
         # -------------------------------------------------------------
         run("""
             CREATE TABLE IF NOT EXISTS users (
