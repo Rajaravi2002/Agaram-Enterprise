@@ -54,12 +54,21 @@
           </td>
           <td><span class="badge-status {{ loan.loan_status }}"><i class="bi bi-circle-fill" style="font-size:7px"></i> {{ loan.loan_status|title }}</span></td>
           <td>
-            <div class="d-flex gap-1">
-              <a href="{{ url_for('loans.view', loan_id=loan.loan_id) }}" class="btn btn-sm btn-outline-primary btn-icon"><i class="bi bi-eye"></i></a>
+            <div class="d-flex gap-1 align-items-center">
+              <a href="{{ url_for('loans.view', loan_id=loan.loan_id) }}" class="btn btn-sm btn-outline-primary btn-icon" title="View"><i class="bi bi-eye"></i></a>
               {% if loan.loan_status in ('active','overdue') %}
               <a href="{{ url_for('payments.collect') }}?loan_id={{ loan.loan_id }}" class="btn btn-sm btn-outline-success btn-icon" title="Collect"><i class="bi bi-receipt-cutoff"></i></a>
               {% endif %}
               <a href="{{ url_for('loans.edit', loan_id=loan.loan_id) }}" class="btn btn-sm btn-outline-secondary btn-icon" title="Edit"><i class="bi bi-pencil"></i></a>
+              
+              {% if current_user.is_admin or current_user.role == 'admin' %}
+              <form method="POST" action="{{ url_for('loans.delete', id=loan.id) }}" class="d-inline" onsubmit="return confirm('Are you sure you want to delete Loan {{ loan.loan_id }}?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger btn-icon" title="Delete Loan">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+              {% endif %}
             </div>
           </td>
         </tr>

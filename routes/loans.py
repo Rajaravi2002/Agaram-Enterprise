@@ -4,6 +4,7 @@ from datetime import datetime, date
 from database import one, query, run, fmt_date, to_dt
 from services import loan_service
 from services.financial import compute_loan_fields_from_rate
+from services.audit_log import log_action
 from routes.backup import auto_sync_excel
 import json
 
@@ -64,7 +65,6 @@ def create():
         auto_sync_excel()
         flash(f'Loan {loan_id} created for {customer_name}!', 'success')
         return redirect(url_for('loans.view', loan_id=loan_id))
-    # Pre-fill customer_name if passed via querystring
     prefill_name = request.args.get('customer_name', '')
     prefill_loan = None
     if prefill_name:
@@ -75,7 +75,7 @@ def create():
                            prefill_name=prefill_name, prefill_loan=prefill_loan)
 
 
-# ── top-up (merge into existing loan) ─────────────────────────────────────────
+# ── top-up ───────────────────────────────────────────────────────────────────
 
 @loans_bp.route('/<loan_id>/topup', methods=['GET', 'POST'])
 @login_required
@@ -139,7 +139,7 @@ def edit(loan_id):
         return redirect(url_for('loans.index'))
     if request.method == 'POST':
         try:
-            loan_service.update_loan(loan_id, request.form, current_user.is_admin)
+            loan_service.update_loan(loan_id, request.form, getattr(current_user, 'is_admin', False))
         except loan_service.LoanServiceError as e:
             flash(str(e), 'danger')
             return redirect(url_for('loans.edit', loan_id=loan_id))
@@ -148,6 +148,35 @@ def edit(loan_id):
         return redirect(url_for('loans.view', loan_id=loan_id))
     loan['loan_date'] = loan['loan_date'][:10] if loan.get('loan_date') else ''
     return render_template('loans/edit.html', loan=loan)
+
+
+# ── delete ────────────────────────────────────────────────────────────────────
+
+@loans_bp.route('/delete/<int:id>', methods=['POST'])
+@login_required
+def delete(id):
+    # Admin access check
+    if getattr(current_user, 'role', 'staff') != 'admin' and not getattr(current_user, 'is_admin', False):
+        flash('Permission denied. Only administrators can delete loans.', 'danger')
+        return redirect(url_for('loans.index'))
+
+    loan = one("SELECT * FROM loans WHERE id=?", (id,))
+    if not loan:
+        flash('Loan record not found.', 'danger')
+        return redirect(url_for('loans.index'))
+
+    loan_code = loan['loan_id']
+    try:
+        # Delete associated payments and loan entry
+        run("DELETE FROM payments WHERE loan_id=?", (loan_code,))
+        run("DELETE FROM loans WHERE id=?", (id,))
+        log_action('LOAN_DELETED', entity_type='Loan', entity_id=str(id), old_value={'loan_id': loan_code})
+        auto_sync_excel()
+        flash(f'Loan {loan_code} and all associated payment records deleted successfully.', 'success')
+    except Exception as e:
+        flash(f'Error deleting loan: {str(e)}', 'danger')
+
+    return redirect(url_for('loans.index'))
 
 
 # ── penalty ───────────────────────────────────────────────────────────────────
@@ -173,7 +202,7 @@ def penalty(loan_id):
 @loans_bp.route('/<loan_id>/close', methods=['POST'])
 @login_required
 def close(loan_id):
-    if not current_user.is_admin:
+    if not getattr(current_user, 'is_admin', False) and getattr(current_user, 'role', 'staff') != 'admin':
         flash('Only admin can close loans.', 'danger')
         return redirect(url_for('loans.view', loan_id=loan_id))
     run("UPDATE loans SET loan_status='closed', closed_at=? WHERE loan_id=?",
@@ -185,7 +214,7 @@ def close(loan_id):
 @loans_bp.route('/<loan_id>/mark-overdue', methods=['POST'])
 @login_required
 def mark_overdue(loan_id):
-    if not current_user.is_admin:
+    if not getattr(current_user, 'is_admin', False) and getattr(current_user, 'role', 'staff') != 'admin':
         flash('Only admin can mark loans as overdue.', 'danger')
         return redirect(url_for('loans.view', loan_id=loan_id))
     run("UPDATE loans SET loan_status='overdue' WHERE loan_id=?", (loan_id,))
@@ -198,9 +227,7 @@ def mark_overdue(loan_id):
 @loans_bp.route('/calculate', methods=['POST'])
 @login_required
 def calculate():
-    """Live preview while filling the create/edit form. Uses the exact
-    same formula module (services/financial.py) as the actual save, so
-    this preview can never disagree with what gets persisted."""
+    """Live preview while filling the create/edit form."""
     d = request.get_json()
     f = compute_loan_fields_from_rate(
         loan_amount=float(d.get('loan_amount', 0)),
@@ -221,7 +248,6 @@ def calculate():
 @loans_bp.route('/customer-loans/<customer_name>')
 @login_required
 def customer_loans(customer_name):
-    """Return active/overdue loans for a customer — used in create form."""
     loans = query(
         "SELECT loan_id, loan_amount, balance_agreement, interest_rate, tenure, loan_status "
         "FROM loans WHERE customer_name=? AND loan_status IN ('active','overdue') ORDER BY id DESC",

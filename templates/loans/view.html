@@ -1,5 +1,58 @@
 {% extends "base.html" %}
-{% block title %}{{ loan.loan_id }}
+{% block title %}{{ loan.loan_id }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-title">{{ loan.loan_id }}</h1><p class="page-subtitle">{{ loan.customer_name }}</p></div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if loan.loan_status in ('active','overdue') %}
+    <a href="{{ url_for('payments.collect') }}?loan_id={{ loan.loan_id }}" class="btn btn-success"><i class="bi bi-receipt-cutoff me-1"></i>Collect EMI</a>
+    <a href="{{ url_for('loans.penalty', loan_id=loan.loan_id) }}" class="btn btn-warning"><i class="bi bi-exclamation-triangle me-1"></i>Set Penalty</a>
+    {% endif %}
+    <a href="{{ url_for('loans.topup', loan_id=loan.loan_id) }}" class="btn btn-outline-success"
+       title="Add amount to this loan, same loan number">
+      <i class="bi bi-layers me-2"></i>Top-Up
+    </a>
+    <a href="{{ url_for('loans.create') }}?customer_name={{ loan.customer_name|urlencode }}" class="btn btn-outline-primary"
+       title="New loan for same customer, new loan number">
+      <i class="bi bi-file-earmark-plus me-1"></i>New Loan
+    </a>
+    <a href="{{ url_for('loans.edit', loan_id=loan.loan_id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1"></i>Edit</a>
+    
+    {% if current_user.is_admin or current_user.role == 'admin' %}
+    <!-- Delete Loan Button -->
+    <form method="POST" action="{{ url_for('loans.delete', id=loan.id) }}" class="d-inline" onsubmit="return confirm('Are you sure you want to delete Loan {{ loan.loan_id }}? All associated payment history will be permanently deleted.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-outline-danger">
+        <i class="bi bi-trash me-1"></i>Delete
+      </button>
+    </form>
+    
+    {% if loan.loan_status == 'active' %}
+    <form method="POST" action="{{ url_for('loans.mark_overdue', loan_id=loan.loan_id) }}" class="d-inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-outline-warning" onclick="return confirm('Mark as overdue?')">Overdue</button>
+    </form>
+    <form method="POST" action="{{ url_for('loans.close', loan_id=loan.loan_id) }}" class="d-inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-outline-secondary" onclick="return confirm('Close this loan?')">Close</button>
+    </form>
+    {% endif %}
+    {% endif %}
+    
+    <a href="{{ url_for('loans.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+  </div>
+</div>
+
+{% if overdue and loan.penalty_amount == 0 %}
+<div class="alert alert-danger mb-3">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+  This loan is <strong>overdue</strong>. Please
+  <a href="{{ url_for('loans.penalty', loan_id=loan.loan_id) }}" class="alert-link">set a penalty amount</a>.
+</div>
+{% endif %}
+
+<!-- Top-Up History (If Present) -->
 {% if topup_history %}
 <div class="card mb-3">
   <div class="card-header-custom">
@@ -27,6 +80,7 @@
 </div>
 {% endif %}
 
+<!-- Other Loans for Customer -->
 {% if other_loans %}
 <div class="card mb-3">
   <div class="card-header-custom">
@@ -58,45 +112,6 @@
       </tbody>
     </table>
   </div>
-</div>
-{% endif %}
-{% endblock %}
-{% block content %}
-<div class="page-header">
-  <div><h1 class="page-title">{{ loan.loan_id }}</h1><p class="page-subtitle">{{ loan.customer_name }}</p></div>
-  <div class="d-flex gap-2 flex-wrap">
-    {% if loan.loan_status in ('active','overdue') %}
-    <a href="{{ url_for('payments.collect') }}?loan_id={{ loan.loan_id }}" class="btn btn-success"><i class="bi bi-receipt-cutoff me-1"></i>Collect EMI</a>
-    <a href="{{ url_for('loans.penalty', loan_id=loan.loan_id) }}" class="btn btn-warning"><i class="bi bi-exclamation-triangle me-1"></i>Set Penalty</a>
-    {% endif %}
-    <a href="{{ url_for('loans.topup', loan_id=loan.loan_id) }}" class="btn btn-outline-success"
-       title="Add amount to this loan, same loan number">
-      <i class="bi bi-layers me-2"></i>Top-Up
-    </a>
-    <a href="{{ url_for('loans.create') }}?customer_name={{ loan.customer_name|urlencode }}" class="btn btn-outline-primary"
-       title="New loan for same customer, new loan number">
-      <i class="bi bi-file-earmark-plus me-1"></i>New Loan
-    </a>
-    <a href="{{ url_for('loans.edit', loan_id=loan.loan_id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1"></i>Edit</a>
-    {% if current_user.is_admin and loan.loan_status == 'active' %}
-    <form method="POST" action="{{ url_for('loans.mark_overdue', loan_id=loan.loan_id) }}" class="d-inline">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button class="btn btn-outline-warning" data-confirm="Mark as overdue?">Overdue</button>
-    </form>
-    <form method="POST" action="{{ url_for('loans.close', loan_id=loan.loan_id) }}" class="d-inline">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button class="btn btn-outline-secondary" data-confirm="Close this loan?">Close</button>
-    </form>
-    {% endif %}
-    <a href="{{ url_for('loans.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
-  </div>
-</div>
-
-{% if overdue and loan.penalty_amount == 0 %}
-<div class="alert alert-danger mb-3">
-  <i class="bi bi-exclamation-triangle-fill me-2"></i>
-  This loan is <strong>overdue</strong>. Please
-  <a href="{{ url_for('loans.penalty', loan_id=loan.loan_id) }}" class="alert-link">set a penalty amount</a>.
 </div>
 {% endif %}
 

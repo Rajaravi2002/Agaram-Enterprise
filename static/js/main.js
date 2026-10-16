@@ -22,11 +22,6 @@ document.addEventListener('click', (e) => {
 });
 
 // ─── HTML-escaping helper ───────────────────────────────────────────────────
-// Every value below comes from the database (customer/loan/payment names
-// entered by staff) and gets interpolated into innerHTML. Without this, a
-// customer name containing e.g. <img src=x onerror=...> would execute in
-// anyone's browser who searches for it -- escape everything untrusted
-// before it goes into a template string.
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -86,13 +81,13 @@ function renderSearchResults(data) {
     html += `<div class="search-result-section">
       <div class="search-result-header"><i class="bi bi-person me-1"></i>Customers</div>
       ${customers.map(c => `
-        	        <div class="search-result-item" onclick="location.href='/customers/${encodeURIComponent(c.id)}'">
-	          <i class="bi bi-person-circle text-primary" style="font-size:16px"></i>
-	          <div>
-	            <div class="fw-600">${escapeHtml(c.name)}</div>
-	            <div class="text-muted" style="font-size:11px">${escapeHtml(c.phone)}</div>
-	          </div>
-	        </div>`).join('')}
+        <div class="search-result-item" onclick="location.href='/customers/${encodeURIComponent(c.id)}'">
+          <i class="bi bi-person-circle text-primary" style="font-size:16px"></i>
+          <div>
+            <div class="fw-600">${escapeHtml(c.name)}</div>
+            <div class="text-muted" style="font-size:11px">${escapeHtml(c.phone)}</div>
+          </div>
+        </div>`).join('')}
     </div>`;
   }
   if (loans.length) {
@@ -102,7 +97,7 @@ function renderSearchResults(data) {
         <div class="search-result-item" onclick="location.href='/loans/${encodeURIComponent(l.loan_id)}'">
           <i class="bi bi-cash-coin text-success" style="font-size:16px"></i>
           <div>
-            <div class="fw-600">${escapeHtml(l.loan_id)} – ${escapeHtml(l.customer_name)}</div>
+            <div class="fw-600">${escapeHtml(l.loan_id)} –${escapeHtml(l.customer_name)}</div>
             <div class="text-muted" style="font-size:11px">₹${(l.loan_amount||0).toLocaleString('en-IN')} · <span class="text-capitalize">${escapeHtml(l.loan_status)}</span></div>
           </div>
         </div>`).join('')}
@@ -115,8 +110,8 @@ function renderSearchResults(data) {
         <div class="search-result-item" onclick="location.href='/payments/receipt/${encodeURIComponent(p.payment_id)}'">
           <i class="bi bi-receipt text-warning" style="font-size:16px"></i>
           <div>
-            <div class="fw-600">${escapeHtml(p.payment_id)} – ${escapeHtml(p.customer_name)}</div>
-            <div class="text-muted" style="font-size:11px">₹${(p.paid_amount||0).toLocaleString('en-IN')} · ${escapeHtml(p.collection_date||'')}</div>
+            <div class="fw-600">${escapeHtml(p.payment_id)} –${escapeHtml(p.customer_name)}</div>
+            <div class="text-muted" style="font-size:11px">₹${(p.paid_amount\vert{}\vert{}0).toLocaleString('en-IN')} ·${escapeHtml(p.collection_date||'')}</div>
           </div>
         </div>`).join('')}
     </div>`;
@@ -153,15 +148,9 @@ document.querySelectorAll('.format-rupee').forEach(el => {
 });
 
 // ─── Autocomplete Widget ──────────────────────────────────────────────────────
-/**
- * attachAutocomplete(inputEl, apiPath, onSelect)
- * Creates a dropdown below inputEl that fetches /api/suggest/<apiPath>?q=...
- * onSelect(item) is called when user picks a suggestion.
- */
 function attachAutocomplete(inputEl, apiPath, onSelect) {
   if (!inputEl) return;
 
-  // Create dropdown container
   const wrapper = document.createElement('div');
   wrapper.style.cssText = 'position:relative;display:inline-block;width:100%';
   inputEl.parentNode.insertBefore(wrapper, inputEl);
@@ -200,7 +189,6 @@ function attachAutocomplete(inputEl, apiPath, onSelect) {
     }, 220);
   });
 
-  // Keyboard navigation
   inputEl.addEventListener('keydown', (e) => {
     const items = dropdown.querySelectorAll('.ac-item');
     if (!items.length) return;
@@ -266,10 +254,9 @@ function attachLoanIdCheck(inputEl, statusEl) {
 
 // ─── Interest rate reverse-calculator ────────────────────────────────────────
 /**
- * Given interest_amount and tenure (months), compute % per month:
- *   rate = (interest_amount / (principle * tenure)) * 100
+ * Updated formula: rate = (interest_amount / (loan_amount * tenure)) * 100
  */
-function calcRateFromAmount(principle, interestAmount, tenure) {
-  if (!principle || !tenure || principle <= 0 || tenure <= 0) return 0;
-  return Math.round((interestAmount / (principle * tenure)) * 10000) / 100; // 4 decimal places
+function calcRateFromAmount(loanAmount, interestAmount, tenure) {
+  if (!loanAmount || !tenure || loanAmount <= 0 || tenure <= 0) return 0;
+  return Math.round((interestAmount / (loanAmount * tenure)) * 10000) / 100;
 }
