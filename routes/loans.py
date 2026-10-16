@@ -4,9 +4,17 @@ from datetime import datetime, date
 from database import one, query, run, fmt_date, to_dt
 from services import loan_service
 from services.financial import compute_loan_fields_from_rate
-from services.audit_log import log_action
 from routes.backup import auto_sync_excel
 import json
+
+# Safe import for audit log function across different application versions
+try:
+    from services.audit_log import log_action
+except ImportError:
+    try:
+        from services.audit_log import log_audit as log_action
+    except ImportError:
+        def log_action(*args, **kwargs): pass
 
 loans_bp = Blueprint('loans', __name__, url_prefix='/loans')
 
@@ -170,7 +178,10 @@ def delete(id):
         # Delete associated payments and loan entry
         run("DELETE FROM payments WHERE loan_id=?", (loan_code,))
         run("DELETE FROM loans WHERE id=?", (id,))
-        log_action('LOAN_DELETED', entity_type='Loan', entity_id=str(id), old_value={'loan_id': loan_code})
+        try:
+            log_action('LOAN_DELETED', entity_type='Loan', entity_id=str(id), old_value={'loan_id': loan_code})
+        except Exception:
+            pass
         auto_sync_excel()
         flash(f'Loan {loan_code} and all associated payment records deleted successfully.', 'success')
     except Exception as e:
