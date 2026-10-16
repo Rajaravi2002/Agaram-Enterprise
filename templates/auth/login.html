@@ -1,17 +1,138 @@
 {% extends "base.html" %}
 {% block title %}Login{% endblock %}
 
+{% block extra_css %}
+<style>
+  .auth-wrapper {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: clamp(24px, 5vw, 64px) 18px;
+    background:
+      radial-gradient(circle at 12% 16%, rgba(25, 197, 128, .13), transparent 30%),
+      radial-gradient(circle at 88% 80%, rgba(212, 175, 91, .12), transparent 30%),
+      #eef2f4;
+  }
+
+  .auth-card {
+    width: min(100%, 440px);
+    padding: clamp(24px, 5vw, 38px);
+    border: 1px solid rgba(18, 38, 58, .09);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, .92);
+    box-shadow: 0 28px 70px rgba(17, 35, 53, .14);
+    backdrop-filter: blur(14px);
+  }
+
+  .login-brand {
+    position: relative;
+    width: min(100%, 310px);
+    margin: 0 auto 24px;
+    padding: 8px;
+    overflow: hidden;
+    border-radius: 19px;
+    background: #132235;
+    box-shadow: 0 16px 36px rgba(17, 34, 51, .20);
+  }
+
+  .login-brand::after {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 12px;
+    pointer-events: none;
+  }
+
+  .login-logo {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 905 / 621;
+    border-radius: 12px;
+    object-fit: contain;
+    animation: login-logo-in 760ms cubic-bezier(.2, .8, .2, 1) both;
+  }
+
+  .login-system-name {
+    margin: -7px 0 28px;
+    color: #64717c;
+    font-size: .76rem;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .auth-card .form-label {
+    color: #25384a;
+    font-size: .79rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+
+  .auth-card .input-group {
+    overflow: hidden;
+    border: 1px solid #dce3e8;
+    border-radius: 12px;
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .auth-card .input-group:focus-within {
+    border-color: #16a66d;
+    box-shadow: 0 0 0 4px rgba(22, 166, 109, .11);
+  }
+
+  .auth-card .input-group-text,
+  .auth-card .form-control {
+    min-height: 46px;
+    border: 0 !important;
+    background: #f8faf9 !important;
+  }
+
+  .auth-card .form-control:focus { box-shadow: none; }
+
+  .auth-card .btn-primary {
+    min-height: 48px;
+    border: 0;
+    border-radius: 12px;
+    background: #12865a;
+    box-shadow: 0 11px 24px rgba(18, 134, 90, .20);
+    font-weight: 700;
+    transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+  }
+
+  .auth-card .btn-primary:hover {
+    background: #0d744d;
+    box-shadow: 0 14px 28px rgba(18, 134, 90, .25);
+    transform: translateY(-1px);
+  }
+
+  .password-toggle { cursor: pointer; }
+
+  @keyframes login-logo-in {
+    from { opacity: 0; transform: scale(.94) translateY(8px); filter: saturate(.7); }
+    to { opacity: 1; transform: none; filter: saturate(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .login-logo { animation: none; }
+    .auth-card .btn-primary { transition: none; }
+  }
+</style>
+{% endblock %}
+
 {% block auth_content %}
 <div class="auth-card">
   <div class="auth-logo">
-    <div class="text-center mb-4">
-    <img src="{{ url_for('static', filename='img/agaram_logo.png') }}" 
-         alt="Agaram Enterprises Logo" 
-         style="max-height: 80px; width: auto;" 
-         class="mb-2">
-    <h3 class="fw-bold text-primary mb-0">Agaram Enterprises</h3>
-    <p class="text-muted small">Finance Management System</p>
-</div>
+    <figure class="login-brand">
+      <img src="{{ url_for('static', filename='img/agaram_logo.png') }}"
+           alt="Agaram Enterprises"
+           class="login-logo"
+           width="905"
+           height="621">
+    </figure>
+    <p class="login-system-name">Finance Management System</p>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -24,23 +145,24 @@
     {% endif %}
   {% endwith %}
 
-  <form method="POST" action="{{ url_for('auth.login') }}">
+  <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="mb-3">
-      <label class="form-label">Username</label>
+      <label class="form-label" for="usernameField">Username</label>
       <div class="input-group">
         <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-secondary"></i></span>
-        <input type="text" name="username" class="form-control border-start-0 ps-0"
+        <input type="text" name="username" id="usernameField" class="form-control border-start-0 ps-0"
                placeholder="Enter username" required autofocus>
       </div>
     </div>
     <div class="mb-3">
-      <label class="form-label">Password</label>
+      <label class="form-label" for="passwordField">Password</label>
       <div class="input-group">
         <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock text-secondary"></i></span>
         <input type="password" name="password" id="passwordField"
                class="form-control border-start-0 ps-0" placeholder="Enter password" required>
-        <button type="button" class="input-group-text bg-light" onclick="togglePassword()">
+        <button type="button" class="input-group-text bg-light password-toggle" onclick="togglePassword()"
+                aria-label="Show password" aria-pressed="false" id="passwordToggle">
           <i class="bi bi-eye" id="eyeIcon"></i>
         </button>
       </div>
@@ -51,7 +173,7 @@
         <label class="form-check-label" for="remember" style="font-size:13px">Remember me</label>
       </div>
     </div>
-    <button type="submit" class="btn btn-primary w-100" style="padding:11px">
+    <button type="submit" class="btn btn-primary w-100">
       <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
     </button>
   </form>
@@ -65,13 +187,23 @@
 function togglePassword() {
   const field = document.getElementById('passwordField');
   const icon = document.getElementById('eyeIcon');
+  const button = document.getElementById('passwordToggle');
   if (field.type === 'password') {
     field.type = 'text';
     icon.className = 'bi bi-eye-slash';
+    button.setAttribute('aria-label', 'Hide password');
+    button.setAttribute('aria-pressed', 'true');
   } else {
     field.type = 'password';
     icon.className = 'bi bi-eye';
+    button.setAttribute('aria-label', 'Show password');
+    button.setAttribute('aria-pressed', 'false');
   }
 }
+
+document.getElementById('loginForm').addEventListener('submit', () => {
+  // Guarantees the authenticated sidebar welcome animation runs after sign-in.
+  sessionStorage.removeItem('agaram-brand-welcomed');
+});
 </script>
 {% endblock %}
