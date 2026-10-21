@@ -9,9 +9,9 @@
     place-items: center;
     padding: clamp(24px, 5vw, 64px) 18px;
     background:
-      radial-gradient(circle at 12% 16%, rgba(25, 197, 128, .13), transparent 30%),
+      radial-gradient(circle at 12% 16%, rgba(25, 197, 128, .12), transparent 30%),
       radial-gradient(circle at 88% 80%, rgba(212, 175, 91, .12), transparent 30%),
-      #0b1724; /* Updated dark navy background matching base.html theme */
+      #0b1724; /* Seamless dark navy background */
   }
 
   .auth-card {
@@ -19,7 +19,7 @@
     padding: clamp(28px, 5vw, 40px);
     border: 1px solid rgba(255, 255, 255, .10);
     border-radius: 24px;
-    background: rgba(19, 34, 51, .92); /* Dark glassmorphism card */
+    background: rgba(19, 34, 51, .92);
     box-shadow: 0 28px 70px rgba(0, 0, 0, .45);
     backdrop-filter: blur(16px);
   }
@@ -36,7 +36,6 @@
     box-shadow: 0 16px 36px rgba(0, 0, 0, .35);
   }
 
-  /* Glass Shine Effect on Logo Tile */
   .login-brand::after {
     content: "";
     position: absolute;
@@ -223,7 +222,6 @@ function togglePassword() {
 }
 
 document.getElementById('loginForm').addEventListener('submit', () => {
-  // Clears session storage to ensure post-login logo pop animation triggers on base.html
   sessionStorage.removeItem('agaram_animated');
 });
 </script>
