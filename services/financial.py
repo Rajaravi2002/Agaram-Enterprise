@@ -2,9 +2,11 @@
 services/financial.py – Single source of truth for Agaram Finance's
 loan-math formulas.
 
-Updated Formula:
-  Interest = Loan Amount x Rate% x Tenure (Months)
-  Agreement Value = Loan Amount + Interest Amount
+Updated Formulas:
+  1. Principle Amount = Loan Amount - Document Charge
+  2. Interest Amount  = Loan Amount x Rate% x Tenure (Months)
+  3. Agreement Value  = Loan Amount + Interest Amount
+  4. Monthly Due      = Agreement Value / Tenure (Months)
 """
 import math
 from decimal import Decimal, ROUND_HALF_UP
@@ -22,11 +24,12 @@ def round2(value) -> float:
 
 
 def principle_amount(loan_amount: float, document_charge: float) -> float:
+    """Principle Amount = Loan Amount - Document Charge."""
     return round2(_d(loan_amount) - _d(document_charge))
 
 
 def interest_amount_from_rate(loan_amount: float, rate_pct: float, tenure_months: int) -> float:
-    """interest = loan_amount x rate% x tenure (flat monthly rate)."""
+    """Interest Amount = Loan Amount x Rate% x Tenure (flat monthly rate)."""
     if tenure_months <= 0:
         return 0.0
     return round2(_d(loan_amount) * (_d(rate_pct) / 100) * tenure_months)
@@ -45,7 +48,7 @@ def agreement_value(loan_amount: float, interest_amt: float) -> float:
 
 
 def monthly_due(agreement: float, tenure_months: int) -> float:
-    """Applied everywhere -- loan creation, the AJAX preview, and top-ups."""
+    """Monthly Due = Agreement Value / Tenure (Months). Applied across app."""
     if tenure_months <= 0:
         return 0.0
     if ROUND_DUE_UP:
@@ -86,7 +89,7 @@ def compute_loan_fields(loan_amount: float, document_charge: float,
 
 def compute_loan_fields_from_rate(loan_amount: float, document_charge: float,
                                    rate_pct: float, tenure_months: int) -> dict:
-    """AJAX preview calculator & top-ups using Loan Amount * Rate% * Months."""
+    """AJAX preview calculator & top-ups using Loan Amount x Rate% x Months."""
     principle = principle_amount(loan_amount, document_charge)
     interest_amt = interest_amount_from_rate(loan_amount, rate_pct, tenure_months)
     agreement = agreement_value(loan_amount, interest_amt)

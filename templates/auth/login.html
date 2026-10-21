@@ -11,37 +11,47 @@
     background:
       radial-gradient(circle at 12% 16%, rgba(25, 197, 128, .13), transparent 30%),
       radial-gradient(circle at 88% 80%, rgba(212, 175, 91, .12), transparent 30%),
-      #eef2f4;
+      #0b1724; /* Updated dark navy background matching base.html theme */
   }
 
   .auth-card {
-    width: min(100%, 440px);
-    padding: clamp(24px, 5vw, 38px);
-    border: 1px solid rgba(18, 38, 58, .09);
+    width: min(100%, 430px);
+    padding: clamp(28px, 5vw, 40px);
+    border: 1px solid rgba(255, 255, 255, .10);
     border-radius: 24px;
-    background: rgba(255, 255, 255, .92);
-    box-shadow: 0 28px 70px rgba(17, 35, 53, .14);
-    backdrop-filter: blur(14px);
+    background: rgba(19, 34, 51, .92); /* Dark glassmorphism card */
+    box-shadow: 0 28px 70px rgba(0, 0, 0, .45);
+    backdrop-filter: blur(16px);
   }
 
   .login-brand {
     position: relative;
-    width: min(100%, 310px);
-    margin: 0 auto 24px;
-    padding: 8px;
+    width: min(100%, 300px);
+    margin: 0 auto 20px;
+    padding: 10px;
     overflow: hidden;
-    border-radius: 19px;
-    background: #132235;
-    box-shadow: 0 16px 36px rgba(17, 34, 51, .20);
+    border-radius: 18px;
+    background: #0f1e2e;
+    border: 1px solid rgba(255, 255, 255, .08);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, .35);
   }
 
+  /* Glass Shine Effect on Logo Tile */
   .login-brand::after {
     content: "";
     position: absolute;
-    inset: 8px;
-    border: 1px solid rgba(255, 255, 255, .08);
-    border-radius: 12px;
-    pointer-events: none;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.22) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    transform: rotate(25deg);
+    animation: loginLogoShine 4s infinite ease-in-out;
   }
 
   .login-logo {
@@ -55,39 +65,44 @@
   }
 
   .login-system-name {
-    margin: -7px 0 28px;
-    color: #64717c;
-    font-size: .76rem;
-    font-weight: 600;
-    letter-spacing: .14em;
+    margin: -4px 0 28px;
+    color: #8a99ad;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .18em;
     text-align: center;
     text-transform: uppercase;
   }
 
   .auth-card .form-label {
-    color: #25384a;
-    font-size: .79rem;
+    color: #e2e8f0;
+    font-size: .80rem;
     font-weight: 700;
     letter-spacing: .04em;
   }
 
   .auth-card .input-group {
     overflow: hidden;
-    border: 1px solid #dce3e8;
+    border: 1px solid rgba(255, 255, 255, .12);
     border-radius: 12px;
     transition: border-color 180ms ease, box-shadow 180ms ease;
   }
 
   .auth-card .input-group:focus-within {
     border-color: #16a66d;
-    box-shadow: 0 0 0 4px rgba(22, 166, 109, .11);
+    box-shadow: 0 0 0 4px rgba(22, 166, 109, .18);
   }
 
   .auth-card .input-group-text,
   .auth-card .form-control {
-    min-height: 46px;
+    min-height: 48px;
     border: 0 !important;
-    background: #f8faf9 !important;
+    background: #132233 !important;
+    color: #ffffff !important;
+  }
+
+  .auth-card .form-control::placeholder {
+    color: #64717c;
   }
 
   .auth-card .form-control:focus { box-shadow: none; }
@@ -97,18 +112,24 @@
     border: 0;
     border-radius: 12px;
     background: #12865a;
-    box-shadow: 0 11px 24px rgba(18, 134, 90, .20);
+    box-shadow: 0 11px 24px rgba(18, 134, 90, .30);
     font-weight: 700;
+    letter-spacing: 0.5px;
     transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
   }
 
   .auth-card .btn-primary:hover {
     background: #0d744d;
-    box-shadow: 0 14px 28px rgba(18, 134, 90, .25);
+    box-shadow: 0 14px 28px rgba(18, 134, 90, .40);
     transform: translateY(-1px);
   }
 
   .password-toggle { cursor: pointer; }
+
+  @keyframes loginLogoShine {
+    0% { transform: translateY(-100%) rotate(25deg); }
+    20%, 100% { transform: translateY(100%) rotate(25deg); }
+  }
 
   @keyframes login-logo-in {
     from { opacity: 0; transform: scale(.94) translateY(8px); filter: saturate(.7); }
@@ -127,7 +148,7 @@
   <div class="auth-logo">
     <figure class="login-brand">
       <img src="{{ url_for('static', filename='img/agaram_logo.png') }}"
-           alt="Agaram Enterprises"
+           alt="Agaram Enterprises Logo"
            class="login-logo"
            width="905"
            height="621">
@@ -150,7 +171,7 @@
     <div class="mb-3">
       <label class="form-label" for="usernameField">Username</label>
       <div class="input-group">
-        <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-secondary"></i></span>
+        <span class="input-group-text border-end-0"><i class="bi bi-person text-secondary"></i></span>
         <input type="text" name="username" id="usernameField" class="form-control border-start-0 ps-0"
                placeholder="Enter username" required autofocus>
       </div>
@@ -158,27 +179,27 @@
     <div class="mb-3">
       <label class="form-label" for="passwordField">Password</label>
       <div class="input-group">
-        <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock text-secondary"></i></span>
+        <span class="input-group-text border-end-0"><i class="bi bi-lock text-secondary"></i></span>
         <input type="password" name="password" id="passwordField"
                class="form-control border-start-0 ps-0" placeholder="Enter password" required>
-        <button type="button" class="input-group-text bg-light password-toggle" onclick="togglePassword()"
+        <button type="button" class="input-group-text password-toggle" onclick="togglePassword()"
                 aria-label="Show password" aria-pressed="false" id="passwordToggle">
-          <i class="bi bi-eye" id="eyeIcon"></i>
+          <i class="bi bi-eye text-secondary" id="eyeIcon"></i>
         </button>
       </div>
     </div>
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div class="form-check">
         <input type="checkbox" class="form-check-input" name="remember" id="remember">
-        <label class="form-check-label" for="remember" style="font-size:13px">Remember me</label>
+        <label class="form-check-label text-muted" for="remember" style="font-size:13px">Remember me</label>
       </div>
     </div>
-    <button type="submit" class="btn btn-primary w-100">
+    <button type="submit" class="btn btn-primary w-100 text-white">
       <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
     </button>
   </form>
 
-  <div class="auth-divider mt-4 pt-3 border-top">
+  <div class="auth-divider mt-4 pt-3 border-top border-secondary border-opacity-25 text-center">
     <small class="text-muted">Contact your administrator if you need an account.</small>
   </div>
 </div>
@@ -190,20 +211,20 @@ function togglePassword() {
   const button = document.getElementById('passwordToggle');
   if (field.type === 'password') {
     field.type = 'text';
-    icon.className = 'bi bi-eye-slash';
+    icon.className = 'bi bi-eye-slash text-secondary';
     button.setAttribute('aria-label', 'Hide password');
     button.setAttribute('aria-pressed', 'true');
   } else {
     field.type = 'password';
-    icon.className = 'bi bi-eye';
+    icon.className = 'bi bi-eye text-secondary';
     button.setAttribute('aria-label', 'Show password');
     button.setAttribute('aria-pressed', 'false');
   }
 }
 
 document.getElementById('loginForm').addEventListener('submit', () => {
-  // Guarantees the authenticated sidebar welcome animation runs after sign-in.
-  sessionStorage.removeItem('agaram-brand-welcomed');
+  // Clears session storage to ensure post-login logo pop animation triggers on base.html
+  sessionStorage.removeItem('agaram_animated');
 });
 </script>
 {% endblock %}
