@@ -190,14 +190,7 @@ def update_loan(loan_id: str, form, is_admin: bool) -> None:
 
 def topup_loan(loan_id: str, form, by: str) -> dict:
     """Add a top-up to an existing loan. Returns the computed fields
-    for flashing a message.
-
-    Fixes a real bug from the old routes/loans.py: it computed
-    `new_balance` once using a convoluted expression, then immediately
-    overwrote that variable with a second, different calculation
-    before it was ever used -- the first calculation was dead code
-    that had no effect. There's only one calculation now.
-    """
+    for flashing a message."""
     loan = one("SELECT * FROM loans WHERE loan_id=?", (loan_id,))
     if not loan:
         raise LoanServiceError('Loan not found.')
@@ -216,10 +209,6 @@ def topup_loan(loan_id: str, form, by: str) -> dict:
     new_loan_amt = float(loan['loan_amount']) + topup_amount
     new_doc      = float(loan['document_charge']) + topup_doc
 
-    # Same interest RATE as before, re-derived on the new principal x new
-    # tenure via the one shared formula (services/financial.py) -- not
-    # duplicated math, and consistent no matter how many top-ups a loan
-    # has already had.
     f = compute_loan_fields_from_rate(
         loan_amount=new_loan_amt,
         document_charge=new_doc,

@@ -281,7 +281,7 @@
           <div class="fw-600 mb-1">Formula (Flat Rate)</div>
           <code style="font-size:11px">
             Principle = Loan - Doc Charge<br>
-            Interest = loan × Rate% × Months<br>
+            Interest = Loan × Rate% × Months<br>
             Agreement = Loan + Interest<br>
             Due/Month = Agreement ÷ Tenure
           </code>
@@ -350,8 +350,9 @@ function calc(){
   }
   document.getElementById('interestRate').value = rate.toFixed(2);
   
-  const agr = Math.round((prin + interest)*100)/100;
-  // Monthly Due should always be Rounded
+  // Agreement Value = Loan Amount + Interest Amount
+  const agr = Math.round((loan + interest)*100)/100;
+  // Monthly Due = Agreement Value / Tenure (Ceil Rounded)
   const due = ten ? Math.ceil(agr/ten) : 0;
 
   document.getElementById('principleAmt').value  = prin.toFixed(2);
