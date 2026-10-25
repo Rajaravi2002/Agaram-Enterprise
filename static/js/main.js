@@ -97,7 +97,7 @@ function renderSearchResults(data) {
         <div class="search-result-item" onclick="location.href='/loans/${encodeURIComponent(l.loan_id)}'">
           <i class="bi bi-cash-coin text-success" style="font-size:16px"></i>
           <div>
-            <div class="fw-600">${escapeHtml(l.loan_id)} –${escapeHtml(l.customer_name)}</div>
+            <div class="fw-600">${escapeHtml(l.loan_id)} – ${escapeHtml(l.customer_name)}</div>
             <div class="text-muted" style="font-size:11px">₹${(l.loan_amount||0).toLocaleString('en-IN')} · <span class="text-capitalize">${escapeHtml(l.loan_status)}</span></div>
           </div>
         </div>`).join('')}
@@ -110,8 +110,8 @@ function renderSearchResults(data) {
         <div class="search-result-item" onclick="location.href='/payments/receipt/${encodeURIComponent(p.payment_id)}'">
           <i class="bi bi-receipt text-warning" style="font-size:16px"></i>
           <div>
-            <div class="fw-600">${escapeHtml(p.payment_id)} –${escapeHtml(p.customer_name)}</div>
-            <div class="text-muted" style="font-size:11px">₹${(p.paid_amount\vert{}\vert{}0).toLocaleString('en-IN')} ·${escapeHtml(p.collection_date||'')}</div>
+            <div class="fw-600">${escapeHtml(p.payment_id)} – ${escapeHtml(p.customer_name)}</div>
+            <div class="text-muted" style="font-size:11px">₹${(p.paid_amount||0).toLocaleString('en-IN')} · ${escapeHtml(p.collection_date||'')}</div>
           </div>
         </div>`).join('')}
     </div>`;
@@ -219,7 +219,7 @@ function attachAutocomplete(inputEl, apiPath, onSelect) {
   };
 }
 
-// ─── Loan ID duplicate check ──────────────────────────────────────────────────
+// ─── Loan ID Duplicate Check ──────────────────────────────────────────────────
 function attachLoanIdCheck(inputEl, statusEl) {
   if (!inputEl) return;
   let _timer;
@@ -252,9 +252,10 @@ function attachLoanIdCheck(inputEl, statusEl) {
   });
 }
 
-// ─── Interest rate reverse-calculator ────────────────────────────────────────
+// ─── Interest Rate Reverse-Calculator ────────────────────────────────────────
 /**
- * Updated formula: rate = (interest_amount / (loan_amount * tenure)) * 100
+ * Given interest_amount, loanAmount, and tenure (months), compute % per month:
+ *   rate = (interest_amount / (loanAmount * tenure)) * 100
  */
 function calcRateFromAmount(loanAmount, interestAmount, tenure) {
   if (!loanAmount || !tenure || loanAmount <= 0 || tenure <= 0) return 0;

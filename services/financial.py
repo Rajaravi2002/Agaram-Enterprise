@@ -2,11 +2,11 @@
 services/financial.py – Single source of truth for Agaram Finance's
 loan-math formulas.
 
-Updated Formulas:
+Formulas:
   1. Principle Amount = Loan Amount - Document Charge
-  2. Interest Amount  = Loan Amount x Rate% x Tenure (Months)
+  2. Interest Amount  = Loan Amount x Rate% x Months
   3. Agreement Value  = Loan Amount + Interest Amount
-  4. Monthly Due      = Agreement Value / Tenure (Months)
+  4. Monthly Due      = Agreement Value / Months (Ceil rounded)
 """
 import math
 from decimal import Decimal, ROUND_HALF_UP
@@ -29,14 +29,14 @@ def principle_amount(loan_amount: float, document_charge: float) -> float:
 
 
 def interest_amount_from_rate(loan_amount: float, rate_pct: float, tenure_months: int) -> float:
-    """Interest Amount = Loan Amount x Rate% x Tenure (flat monthly rate)."""
+    """Interest Amount = Loan Amount x Rate% x Tenure (Months)."""
     if tenure_months <= 0:
         return 0.0
     return round2(_d(loan_amount) * (_d(rate_pct) / 100) * tenure_months)
 
 
 def rate_from_interest_amount(interest_amount: float, loan_amount: float, tenure_months: int) -> float:
-    """Derives interest rate % from interest amount based on total loan_amount."""
+    """Rate% = (Interest Amount / (Loan Amount x Months)) x 100."""
     if loan_amount <= 0 or tenure_months <= 0:
         return 0.0
     return round2(_d(interest_amount) / (_d(loan_amount) * tenure_months) * 100)
@@ -48,7 +48,7 @@ def agreement_value(loan_amount: float, interest_amt: float) -> float:
 
 
 def monthly_due(agreement: float, tenure_months: int) -> float:
-    """Monthly Due = Agreement Value / Tenure (Months). Applied across app."""
+    """Monthly Due = Agreement Value / Tenure (Months)."""
     if tenure_months <= 0:
         return 0.0
     if ROUND_DUE_UP:
@@ -57,7 +57,8 @@ def monthly_due(agreement: float, tenure_months: int) -> float:
 
 
 def split_principal_interest(agreement_val: float, principle: float, amount: float):
-    """Proportionally allocate a payment between principal and interest."""
+    """Proportionally allocate a payment between principal and interest
+    based on the loan's principal:agreement ratio."""
     agreement_val = float(agreement_val or 0)
     if agreement_val <= 0:
         return round2(amount), 0.0
@@ -69,7 +70,7 @@ def split_principal_interest(agreement_val: float, principle: float, amount: flo
 
 def compute_loan_fields(loan_amount: float, document_charge: float,
                          interest_amount: float, tenure_months: int) -> dict:
-    """Turns (loan_amount, document_charge, interest_amount, tenure) into derived fields."""
+    """Derive all loan parameters when interest_amount is supplied as an input."""
     principle = principle_amount(loan_amount, document_charge)
     rate = rate_from_interest_amount(interest_amount, loan_amount, tenure_months)
     agreement = agreement_value(loan_amount, interest_amount)
@@ -89,7 +90,7 @@ def compute_loan_fields(loan_amount: float, document_charge: float,
 
 def compute_loan_fields_from_rate(loan_amount: float, document_charge: float,
                                    rate_pct: float, tenure_months: int) -> dict:
-    """AJAX preview calculator & top-ups using Loan Amount x Rate% x Months."""
+    """Derive all loan parameters when rate_pct is supplied as an input."""
     principle = principle_amount(loan_amount, document_charge)
     interest_amt = interest_amount_from_rate(loan_amount, rate_pct, tenure_months)
     agreement = agreement_value(loan_amount, interest_amt)
